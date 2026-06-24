@@ -72,6 +72,9 @@ bot = commands.Bot(
 bot.app_config = config
 
 # ─── Cog Loading ─────────────────────────────────────────────────────────────
+# Voice/TTS requires ffmpeg + UDP audio — not available on Render
+IS_CLOUD = bool(os.environ.get("BOT_TOKEN"))
+
 COGS = [
     "cogs.economy",
     "cogs.coinflip",
@@ -79,8 +82,9 @@ COGS = [
     "cogs.blackjack",
     "cogs.mines",
     "cogs.highlow",
-    "cogs.voice",
 ]
+if not IS_CLOUD:
+    COGS.append("cogs.voice")
 
 
 @bot.event
@@ -171,15 +175,16 @@ async def custom_help(ctx: commands.Context):
         ),
         inline=False,
     )
-    embed.add_field(
-        name="🔊  Voice & TTS",
-        value=(
-            f"`{p}join` — Join your voice channel\n"
-            f"`{p}tts [sentence]` — Text-to-speech in voice channel\n"
-            f"`{p}leave` — Disconnect from voice channel"
-        ),
-        inline=False,
-    )
+    if not IS_CLOUD:
+        embed.add_field(
+            name="🔊  Voice & TTS",
+            value=(
+                f"`{p}join` — Join your voice channel\n"
+                f"`{p}tts [sentence]` — Text-to-speech in voice channel\n"
+                f"`{p}leave` — Disconnect from voice channel"
+            ),
+            inline=False,
+        )
     embed.add_field(
         name="🔧  Admin (Owner Only)",
         value=(
