@@ -25,23 +25,34 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 
 
 def load_config() -> dict:
-    """Load or create the bot configuration file."""
-    if not os.path.exists(CONFIG_PATH):
-        default = {
-            "token": "YOUR_BOT_TOKEN_HERE",
-            "owner_id": 0,
-            "prefix": "!",
-            "starting_balance": 500,
+    """Load config from environment variables (Render) or config.json (local)."""
+    # Priority 1: Environment variables (for Render / cloud hosting)
+    if os.environ.get("BOT_TOKEN"):
+        return {
+            "token": os.environ["BOT_TOKEN"],
+            "owner_id": int(os.environ.get("OWNER_ID", "0")),
+            "prefix": os.environ.get("PREFIX", "!"),
+            "starting_balance": int(os.environ.get("STARTING_BALANCE", "500")),
         }
-        with open(CONFIG_PATH, "w") as f:
-            json.dump(default, f, indent=4)
-        print(
-            "[!] config.json created. Please fill in your bot token and owner ID, then restart."
-        )
-        raise SystemExit(1)
 
-    with open(CONFIG_PATH, "r") as f:
-        return json.load(f)
+    # Priority 2: config.json (for local development)
+    if os.path.exists(CONFIG_PATH):
+        with open(CONFIG_PATH, "r") as f:
+            return json.load(f)
+
+    # No config found — generate a template and exit
+    default = {
+        "token": "YOUR_BOT_TOKEN_HERE",
+        "owner_id": 0,
+        "prefix": "!",
+        "starting_balance": 500,
+    }
+    with open(CONFIG_PATH, "w") as f:
+        json.dump(default, f, indent=4)
+    print(
+        "[!] config.json created. Please fill in your bot token and owner ID, then restart."
+    )
+    raise SystemExit(1)
 
 
 config = load_config()
