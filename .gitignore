@@ -1,0 +1,7 @@
+# Discord Bot Files to Ignore
+config.json
+data/
+__pycache__/
+*.pyc
+tts_*.mp3
+*.tmp
