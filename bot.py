@@ -1258,8 +1258,8 @@ def _card_emoji_str(card: "UnoCard") -> str:
     return card.display
 
 
-async def _setup_uno_emojis(guild: discord.Guild) -> None:
-    """Upload all UNO card PNGs as custom emojis to the guild (once per card)."""
+async def _setup_uno_emojis(bot: commands.Bot, guild: discord.Guild) -> None:
+    """Upload missing UNO card PNGs as custom emojis to the specified guild."""
     import os
     CARDS_DIR = os.path.join(BASE_DIR, "assets", "uno_cards")
 
@@ -1274,7 +1274,8 @@ async def _setup_uno_emojis(guild: discord.Guild) -> None:
     if not os.path.exists(CARDS_DIR):
         return
 
-    existing = {e.name: e for e in guild.emojis}
+    # Check ALL emojis the bot has access to across all its servers
+    existing = {e.name: e for e in bot.emojis}
     uploaded = 0
 
     for filename in sorted(os.listdir(CARDS_DIR)):
@@ -1950,11 +1951,10 @@ async def on_ready():
     await bot.change_presence(
         activity=discord.Game(name=f"{config['prefix']}help | 🎰 Gambling"))
 
-    # Auto-upload UNO card emojis to every connected guild
+    # Auto-upload missing UNO card emojis (spread across guilds if needed)
     for guild in bot.guilds:
         try:
-            print(f"[UNO] Setting up card emojis in: {guild.name}")
-            await _setup_uno_emojis(guild)
+            await _setup_uno_emojis(bot, guild)
         except Exception as exc:
             print(f"[UNO] Emoji setup failed for {guild.name}: {exc}")
 
