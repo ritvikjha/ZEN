@@ -999,6 +999,10 @@ UNO_VALUE_EMOJI = {
 }
 
 
+# ── UNO card emoji cache: "red_7" -> emoji_id (int) ──────────────────────────
+_uno_card_emojis: dict[str, int] = {}
+
+
 @dataclass
 class UnoCard:
     color: str       # "Red", "Blue", "Green", "Yellow", or "Wild"
@@ -1006,13 +1010,33 @@ class UnoCard:
     chosen_color: str = ""  # Set when a wild card is played
 
     @property
+    def emoji_key(self) -> str:
+        if self.color == "Wild":
+            return "wild_draw4" if self.value == "Wild +4" else "wild"
+        val_map = {"Skip": "skip", "Reverse": "reverse", "+2": "draw2"}
+        return f"{self.color.lower()}_{val_map.get(self.value, self.value)}"
+
+    @property
+    def button_emoji(self) -> str | None:
+        key = self.emoji_key
+        eid = _uno_card_emojis.get(key)
+        if eid:
+            name = f"uno_{key.replace('-', '_')}"
+            return f"<:{name}:{eid}>"
+        return None
+
+    @property
     def display(self) -> str:
+        if self.button_emoji:
+            return self.button_emoji
         ce = UNO_COLOR_EMOJI.get(self.color, "")
         ve = UNO_VALUE_EMOJI.get(self.value, self.value)
         return f"{ce}{ve}"
 
     @property
     def button_label(self) -> str:
+        if self.button_emoji:
+            return ""  # Don't show text if we have the custom emoji
         if self.color == "Wild":
             return self.value
         return f"{self.color[0]}-{self.value}"
@@ -1185,8 +1209,7 @@ class UnoGame:
         embed = discord.Embed(title="🎴 UNO", color=color_hex)
 
         # ── Top card: use custom emoji if available, else text ────────────────
-        card_emoji = _card_emoji_str(top)
-        top_display = card_emoji
+        top_display = top.display
         if top.color == "Wild" and top.chosen_color:
             top_display += f" → {UNO_COLOR_EMOJI[top.chosen_color]}"
 
@@ -1206,7 +1229,7 @@ class UnoGame:
         embed.add_field(name="Players", value="\n".join(player_lines), inline=False)
 
         # ── Attach full-size card image via Discord CDN URL ───────────────────
-        key = _card_emoji_key(top)
+        key = top.emoji_key
         eid = _uno_card_emojis.get(key)
         if eid:
             embed.set_image(url=f"https://cdn.discordapp.com/emojis/{eid}.png?size=256")
@@ -1235,29 +1258,6 @@ class UnoGame:
 
 # ── Active UNO games per channel ─────────────────────────────────────────────
 _active_uno: dict[int, UnoGame] = {}  # channel_id -> UnoGame
-
-# ── UNO card emoji cache: "red_7" -> emoji_id (int) ──────────────────────────
-_uno_card_emojis: dict[str, int] = {}
-
-
-def _card_emoji_key(card: "UnoCard") -> str:
-    """Return the filename key used for this card's emoji, e.g. 'red_7', 'wild_draw4'."""
-    if card.color == "Wild":
-        return "wild_draw4" if card.value == "Wild +4" else "wild"
-    val_map = {"Skip": "skip", "Reverse": "reverse", "+2": "draw2"}
-    return f"{card.color.lower()}_{val_map.get(card.value, card.value)}"
-
-
-def _card_emoji_str(card: "UnoCard") -> str:
-    """Return an inline emoji string if uploaded, otherwise fall back to text display."""
-    key = _card_emoji_key(card)
-    eid = _uno_card_emojis.get(key)
-    if eid:
-        name = f"uno_{key.replace('-', '_')}"
-        return f"<:{name}:{eid}>"
-    return card.display
-
-
 async def _setup_uno_emojis(bot: commands.Bot, guild: discord.Guild) -> None:
     """Upload missing UNO card PNGs as custom emojis to the specified guild."""
     import os
@@ -1364,6 +1364,7 @@ class UnoHandView(View):
                 style = self._card_style(card)
                 btn = Button(
                     label=card.button_label,
+                    emoji=card.button_emoji,
                     style=style,
                     disabled=False,
                     custom_id=f"uno_card_{i}",
