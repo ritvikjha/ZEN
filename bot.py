@@ -1893,6 +1893,457 @@ async def uno(ctx: commands.Context, entry_fee: int = 0):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+#  ATLAS GAME
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Global set of valid names (populated asynchronously on startup or game load)
+ATLAS_PLACES: set[str] = set()
+
+async def _load_atlas_data():
+    """Download a comprehensive list of countries, states, and cities if not cached."""
+    global ATLAS_PLACES
+    if ATLAS_PLACES:
+        return
+
+    import aiohttp
+    import os
+
+    CITIES_PATH = os.path.join(DATA_DIR, "atlas_places.json")
+    
+    if os.path.exists(CITIES_PATH):
+        try:
+            with open(CITIES_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                ATLAS_PLACES = set(data)
+                return
+        except Exception as e:
+            print(f"[ATLAS] Error loading local cache: {e}")
+
+    print("[ATLAS] Downloading world cities and places database...")
+    places = set()
+    
+    # 1. Base list of countries and states
+    base_places = [
+        "afghanistan", "albania", "algeria", "andorra", "angola", "antigua and barbuda", "argentina", "armenia", "australia", "austria", "azerbaijan",
+        "bahamas", "bahrain", "bangladesh", "barbados", "belarus", "belgium", "belize", "benin", "bhutan", "bolivia", "bosnia and herzegovina", "botswana", "brazil", "brunei", "bulgaria", "burkina faso", "burundi",
+        "cabo verde", "cambodia", "cameroon", "canada", "central african republic", "chad", "chile", "china", "colombia", "comoros", "congo", "costa rica", "croatia", "cuba", "cyprus", "czechia", "czech republic",
+        "denmark", "djibouti", "dominica", "dominican republic",
+        "ecuador", "egypt", "el salvador", "equatorial guinea", "eritrea", "estonia", "eswatini", "ethiopia",
+        "fiji", "finland", "france",
+        "gabon", "gambia", "georgia", "germany", "ghana", "greece", "grenada", "guatemala", "guinea", "guinea-bissau", "guyana",
+        "haiti", "honduras", "hungary",
+        "iceland", "india", "indonesia", "iran", "iraq", "ireland", "israel", "italy", "ivory coast",
+        "jamaica", "japan", "jordan",
+        "kazakhstan", "kenya", "kiribati", "kosovo", "kuwait", "kyrgyzstan",
+        "laos", "latvia", "lebanon", "lesotho", "liberia", "libya", "liechtenstein", "lithuania", "luxembourg",
+        "madagascar", "malawi", "malaysia", "maldives", "mali", "malta", "marshall islands", "mauritania", "mauritius", "mexico", "micronesia", "moldova", "monaco", "mongolia", "montenegro", "morocco", "mozambique", "myanmar",
+        "namibia", "nauru", "nepal", "netherlands", "new zealand", "nicaragua", "niger", "nigeria", "north korea", "north macedonia", "norway",
+        "oman",
+        "pakistan", "palau", "palestine", "panama", "papua new guinea", "paraguay", "peru", "philippines", "poland", "portugal",
+        "qatar",
+        "romania", "russia", "rwanda",
+        "saint kitts and nevis", "saint lucia", "saint vincent and the grenadines", "samoa", "san marino", "sao tome and principe", "saudi arabia", "senegal", "serbia", "seychelles", "sierra leone", "singapore", "slovakia", "slovenia", "solomon islands", "somalia", "south africa", "south korea", "south sudan", "spain", "sri lanka", "sudan", "suriname", "sweden", "switzerland", "syria",
+        "taiwan", "tajikistan", "tanzania", "thailand", "timor-leste", "togo", "tonga", "trinidad and tobago", "tunisia", "turkey", "turkmenistan", "tuvalu",
+        "uganda", "ukraine", "united arab emirates", "united kingdom", "united states", "united states of america", "uruguay", "uzbekistan",
+        "vanuatu", "vatican city", "venezuela", "vietnam",
+        "yemen", "zambia", "zimbabwe",
+        "alabama", "alaska", "arizona", "arkansas", "california", "colorado", "connecticut", "delaware", "florida", "georgia",
+        "hawaii", "idaho", "illinois", "indiana", "iowa", "kansas", "kentucky", "louisiana", "maine", "maryland",
+        "massachusetts", "michigan", "minnesota", "mississippi", "missouri", "montana", "nebraska", "nevada", "new hampshire", "new jersey",
+        "new mexico", "new york", "north carolina", "north dakota", "ohio", "oklahoma", "oregon", "pennsylvania", "rhode island", "south carolina",
+        "south dakota", "tennessee", "texas", "utah", "vermont", "virginia", "washington", "west virginia", "wisconsin", "wyoming",
+        "andhra pradesh", "arunachal pradesh", "assam", "bihar", "chhattisgarh", "goa", "gujarat", "haryana", "himachal pradesh", "jharkhand", "karnataka", "kerala", "madhya pradesh", "maharashtra", "manipur", "meghalaya", "mizoram", "nagaland", "odisha", "punjab", "rajasthan", "sikkim", "tamil nadu", "telangana", "tripura", "uttar pradesh", "uttarakhand", "west bengal",
+        "andaman and nicobar islands", "chandigarh", "dadra and nagar haveli and daman and diu", "delhi", "jammu and kashmir", "ladakh", "lakshadweep", "puducherry",
+        "alberta", "british columbia", "manitoba", "new brunswick", "newfoundland and labrador", "nova scotia", "ontario", "prince edward island", "quebec", "saskatchewan", "northwest territories", "nunavut", "yukon",
+        "new south wales", "victoria", "queensland", "western australia", "south australia", "tasmania", "australian capital territory", "northern territory",
+        "england", "scotland", "wales", "northern ireland", "greenland", "puerto rico", "guam", "american samoa", "hong kong", "macau", "bermuda", "cayman islands", "falkland islands", "gibraltar"
+    ]
+    places.update(base_places)
+    
+    # 2. Fetch a large world cities list (~40k cities)
+    try:
+        url = "https://raw.githubusercontent.com/lutangar/cities.json/master/cities.json"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=15) as resp:
+                if resp.status == 200:
+                    cities_data = await resp.json()
+                    for item in cities_data:
+                        places.add(item.get("name", "").strip().lower())
+        print(f"[ATLAS] Successfully loaded {len(places)} places.")
+    except Exception as e:
+        print(f"[ATLAS] Failed to fetch cities database: {e}. Falling back to base dataset.")
+        
+    ATLAS_PLACES = places
+    # Cache to file
+    try:
+        os.makedirs(os.path.dirname(CITIES_PATH), exist_ok=True)
+        with open(CITIES_PATH, "w", encoding="utf-8") as f:
+            json.dump(list(ATLAS_PLACES), f)
+    except Exception as e:
+        print(f"[ATLAS] Failed to save cache: {e}")
+
+
+@dataclass
+class AtlasPlayer:
+    user: discord.User | discord.Member
+    lives: int = 3
+
+    @property
+    def display_lives(self) -> str:
+        if self.lives <= 0:
+            return "💀 (Eliminated)"
+        return "❤️" * self.lives
+
+
+class AtlasGame:
+    """Core Atlas game state machine."""
+    
+    def __init__(self, host: discord.User | discord.Member, channel: discord.TextChannel):
+        self.host = host
+        self.channel = channel
+        self.players: list[AtlasPlayer] = []
+        self.current_index: int = 0
+        self.current_letter: str = "s"
+        self.used_names: set[str] = set()
+        self.started: bool = False
+        self.finished: bool = False
+        self.turn_task: asyncio.Task | None = None
+        self.lobby_message: discord.Message | None = None
+        self.game_message: discord.Message | None = None
+
+    @property
+    def current_player(self) -> AtlasPlayer:
+        return self.players[self.current_index]
+        
+    @property
+    def alive_players(self) -> list[AtlasPlayer]:
+        return [p for p in self.players if p.lives > 0]
+
+    def add_player(self, user: discord.User | discord.Member) -> bool:
+        if any(p.user.id == user.id for p in self.players):
+            return False
+        if len(self.players) >= 10:
+            return False
+        self.players.append(AtlasPlayer(user=user))
+        return True
+
+    def start(self):
+        self.started = True
+        self.current_letter = "s" # Starts with ATLAS -> S
+        self.used_names.clear()
+
+    def advance_turn(self):
+        """Move to the next alive player."""
+        if self.check_winner():
+            return
+            
+        start_idx = self.current_index
+        while True:
+            self.current_index = (self.current_index + 1) % len(self.players)
+            if self.players[self.current_index].lives > 0:
+                break
+            if self.current_index == start_idx:
+                break # Infinite loop failsafe
+                
+    def deduct_life(self, player: AtlasPlayer):
+        player.lives -= 1
+
+    def check_winner(self) -> bool:
+        alive = self.alive_players
+        if len(alive) <= 1:
+            self.finished = True
+            return True
+        return False
+        
+    def validate_answer(self, text: str) -> tuple[bool, str]:
+        text = text.strip().lower()
+        
+        if not text.startswith(self.current_letter):
+            return False, f"Name must start with **{self.current_letter.upper()}**!"
+            
+        if text in self.used_names:
+            return False, "That name has already been used!"
+            
+        if text not in ATLAS_PLACES:
+            return False, "Not recognized as a valid country, state, or city!"
+            
+        return True, ""
+
+
+# ── Active Atlas games per channel ─────────────────────────────────────────────
+_active_atlas: dict[int, AtlasGame] = {}  # channel_id -> AtlasGame
+
+
+class AtlasLobbyView(View):
+    """Pre-game lobby for Atlas."""
+
+    def __init__(self, game: AtlasGame):
+        super().__init__(timeout=None)
+        self.game = game
+
+    def build_embed(self) -> discord.Embed:
+        embed = discord.Embed(
+            title="🌍 ATLAS — Waiting for Players",
+            description=(
+                f"**Host:** {self.game.host.display_name}\n"
+                f"**Players:** {len(self.game.players)}/10\n\n"
+                + "\n".join(f"✅ {p.user.display_name}" for p in self.game.players)
+                + "\n\n*Click **Join** to enter, then the host clicks **Start**!*\n\n"
+                "**Rules:** You must name a Country, State, or City starting with the last letter of the previous word. You have 3 lives and 30 seconds per turn!"
+            ),
+            color=0x3498DB)
+        return embed
+
+    @discord.ui.button(label="Join Game", style=discord.ButtonStyle.green, emoji="✋")
+    async def join_btn(self, interaction: discord.Interaction, button: Button):
+        if self.game.started:
+            await interaction.response.send_message("Game already started!", ephemeral=True)
+            return
+
+        if any(p.user.id == interaction.user.id for p in self.game.players):
+            await interaction.response.send_message("You already joined!", ephemeral=True)
+            return
+
+        if len(self.game.players) >= 10:
+            await interaction.response.send_message("Game is full! (max 10)", ephemeral=True)
+            return
+
+        self.game.add_player(interaction.user)
+        await interaction.response.edit_message(embed=self.build_embed(), view=self)
+
+    @discord.ui.button(label="Start Game", style=discord.ButtonStyle.primary, emoji="🚀")
+    async def start_btn(self, interaction: discord.Interaction, button: Button):
+        if interaction.user.id != self.game.host.id:
+            await interaction.response.send_message("Only the host can start the game!", ephemeral=True)
+            return
+
+        if len(self.game.players) < 2:
+            await interaction.response.send_message("Need at least 2 players to start!", ephemeral=True)
+            return
+
+        # Ensure dataset is loaded
+        asyncio.create_task(_load_atlas_data())
+
+        self.game.start()
+        for child in self.children:
+            child.disabled = True
+
+        lobby_embed = discord.Embed(
+            title="🌍 ATLAS — Game Started!",
+            description=f"**{len(self.game.players)} players** are in. Let's go!",
+            color=0x2ECC71)
+        await interaction.response.edit_message(embed=lobby_embed, view=self)
+
+        await _atlas_send_turn(self.game)
+
+    @discord.ui.button(label="Leave Game", style=discord.ButtonStyle.secondary, emoji="🚪")
+    async def leave_btn(self, interaction: discord.Interaction, button: Button):
+        if self.game.started:
+            await interaction.response.send_message("Can't leave after the game started!", ephemeral=True)
+            return
+
+        player = next((p for p in self.game.players if p.user.id == interaction.user.id), None)
+        if not player:
+            await interaction.response.send_message("You're not in this game!", ephemeral=True)
+            return
+
+        if interaction.user.id == self.game.host.id:
+            await interaction.response.send_message("The host can't leave! Cancel the game instead.", ephemeral=True)
+            return
+
+        self.game.players.remove(player)
+        await interaction.response.edit_message(embed=self.build_embed(), view=self)
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.danger, emoji="❌")
+    async def cancel_btn(self, interaction: discord.Interaction, button: Button):
+        if interaction.user.id != self.game.host.id:
+            await interaction.response.send_message("Only the host can cancel!", ephemeral=True)
+            return
+
+        if self.game.channel.id in _active_atlas:
+            del _active_atlas[self.game.channel.id]
+
+        embed = discord.Embed(title="❌ Game Cancelled", description="The Atlas lobby was cancelled by the host.", color=0xFF4444)
+        for child in self.children:
+            child.disabled = True
+        await interaction.response.edit_message(embed=embed, view=self)
+
+
+async def _atlas_send_turn(game: AtlasGame, error_msg: str = ""):
+    if game.check_winner():
+        winner = game.alive_players[0]
+        embed = discord.Embed(
+            title="🏆 ATLAS — Game Over!",
+            description=f"**{winner.user.display_name}** is the last one standing and wins the game!",
+            color=0xFFD700
+        )
+        # Standings
+        standings = []
+        for p in game.players:
+            if p == winner:
+                standings.append(f"🏆 {p.user.display_name}: Winner!")
+            else:
+                standings.append(f"💀 {p.user.display_name}: Eliminated")
+        embed.add_field(name="Final Standings", value="\n".join(standings), inline=False)
+        await game.channel.send(embed=embed)
+        if game.channel.id in _active_atlas:
+            del _active_atlas[game.channel.id]
+        return
+
+    player = game.current_player
+    desc = []
+    
+    if error_msg:
+        desc.append(f"❌ {error_msg}\n")
+        
+    desc.append(f"**Previous word:** `ATLAS`" if not game.used_names else f"**Previous word:** `{list(game.used_names)[-1].title()}`")
+    desc.append(f"**Your letter:**  __**{game.current_letter.upper()}**__")
+    desc.append(f"\nType a valid City/State/Country starting with **{game.current_letter.upper()}**.")
+    desc.append(f"You have **30 seconds**. Type `pass` to skip and lose 1 life.")
+
+    embed = discord.Embed(title="🌍 ATLAS", description="\n".join(desc), color=0x3498DB)
+    
+    # Show player lives
+    lives_list = []
+    for i, p in enumerate(game.players):
+        marker = "👉 " if i == game.current_index else "    "
+        lives_list.append(f"{marker}{p.user.display_name}: {p.display_lives}")
+    
+    embed.add_field(name="Players", value="\n".join(lives_list), inline=False)
+    
+    game.game_message = await game.channel.send(content=f"🔔 Your turn, {player.user.mention}!", embed=embed)
+    
+    # Cancel previous timer if exists
+    if game.turn_task and not game.turn_task.done():
+        game.turn_task.cancel()
+        
+    # Start new 30s timer
+    game.turn_task = asyncio.create_task(_atlas_turn_timer(game, player))
+
+async def _atlas_turn_timer(game: AtlasGame, player: AtlasPlayer):
+    try:
+        await asyncio.sleep(30)
+        # If timer completes without cancellation, they ran out of time
+        if game.channel.id not in _active_atlas or _active_atlas[game.channel.id] != game:
+            return
+            
+        if game.current_player == player:
+            game.deduct_life(player)
+            timeout_msg = f"⏳ Time's up! {player.user.display_name} lost 1 life."
+            if player.lives <= 0:
+                timeout_msg += f" **They have been eliminated!**"
+            game.advance_turn()
+            await _atlas_send_turn(game, timeout_msg)
+    except asyncio.CancelledError:
+        pass # Task cancelled because player responded in time
+
+@bot.event
+async def on_message(message: discord.Message):
+    if message.author.bot:
+        return
+
+    # Check for active Atlas game in this channel
+    game = _active_atlas.get(message.channel.id)
+    if game and game.started and not game.finished:
+        player = game.current_player
+        
+        # Is it the current player's turn?
+        if message.author.id == player.user.id:
+            content = message.content.strip().lower()
+            
+            # They typed a regular message but not a command prefix
+            if not content.startswith(config["prefix"]):
+                if game.turn_task and not game.turn_task.done():
+                    game.turn_task.cancel()
+                    
+                if content == "pass":
+                    game.deduct_life(player)
+                    msg = f"⏭️ {player.user.display_name} passed and lost 1 life."
+                    if player.lives <= 0:
+                        msg += f" **They have been eliminated!**"
+                    game.advance_turn()
+                    await _atlas_send_turn(game, msg)
+                else:
+                    valid, err = game.validate_answer(content)
+                    if not valid:
+                        # Failed validation -> lost life
+                        game.deduct_life(player)
+                        msg = f"❌ Invalid answer! {err}\n{player.user.display_name} lost 1 life."
+                        if player.lives <= 0:
+                            msg += f" **They have been eliminated!**"
+                        game.advance_turn()
+                        await _atlas_send_turn(game, msg)
+                    else:
+                        # Success
+                        game.used_names.add(content)
+                        # Set next letter (find last valid alphanumeric character)
+                        clean_content = "".join(c for c in content if c.isalpha())
+                        if clean_content:
+                            game.current_letter = clean_content[-1]
+                        
+                        game.advance_turn()
+                        await _atlas_send_turn(game, f"✅ **{content.title()}** accepted!")
+                
+                # Consume the message so it's not processed as a command if it accidentally matched
+                return 
+
+    # Continue processing commands normally
+    await bot.process_commands(message)
+
+
+@bot.command(name="atlas_start")
+async def atlas_start(ctx: commands.Context):
+    """Start a multiplayer ATLAS game!"""
+    if ctx.channel.id in _active_atlas:
+        await ctx.send(embed=discord.Embed(
+            description="❌ There's already an active ATLAS game in this channel!",
+            color=0xFF4444))
+        return
+
+    # Ensure dataset loading starts in background
+    asyncio.create_task(_load_atlas_data())
+
+    game = AtlasGame(host=ctx.author, channel=ctx.channel)
+    game.add_player(ctx.author)
+    _active_atlas[ctx.channel.id] = game
+
+    lobby_view = AtlasLobbyView(game)
+    msg = await ctx.send(embed=lobby_view.build_embed(), view=lobby_view)
+    game.lobby_message = msg
+
+
+@bot.command(name="cancel")
+async def cancel_game(ctx: commands.Context):
+    """Cancel an active UNO or ATLAS lobby/game."""
+    canceled = False
+    
+    if ctx.channel.id in _active_uno:
+        game = _active_uno[ctx.channel.id]
+        if ctx.author.id == game.host.id or ctx.author.id == config["owner_id"]:
+            del _active_uno[ctx.channel.id]
+            # Refund UNO players
+            if game.entry_fee > 0:
+                for p in game.players:
+                    add_balance(p.user.id, game.entry_fee, STARTING)
+            await ctx.send(embed=discord.Embed(description="✅ UNO game cancelled. Fees refunded.", color=0x2ECC71))
+            canceled = True
+            
+    if ctx.channel.id in _active_atlas:
+        game = _active_atlas[ctx.channel.id]
+        if ctx.author.id == game.host.id or ctx.author.id == config["owner_id"]:
+            if game.turn_task and not game.turn_task.done():
+                game.turn_task.cancel()
+            del _active_atlas[ctx.channel.id]
+            await ctx.send(embed=discord.Embed(description="✅ ATLAS game cancelled.", color=0x2ECC71))
+            canceled = True
+
+    if not canceled:
+        await ctx.send(embed=discord.Embed(
+            description="❌ You aren't the host of an active game in this channel.",
+            color=0xFF4444))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 #  HELP COMMAND
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1928,6 +2379,14 @@ async def custom_help(ctx: commands.Context):
             f"  • Players click **Join** to enter the lobby\n"
             f"  • Click **View Hand** to see your cards (hidden from others)\n"
             f"  • Click cards to play them, or **Draw Card** to draw"
+        ), inline=False)
+    embed.add_field(
+        name="🌍  ATLAS",
+        value=(
+            f"`{p}atlas_start` — Start a multiplayer geography word game\n"
+            f"`{p}cancel` — Cancel the active Atlas or UNO lobby\n"
+            f"  • Name a City, State, or Country starting with the last letter\n"
+            f"  • 3 lives, 30 seconds per turn!"
         ), inline=False)
     embed.add_field(
         name="🔧  Admin (Owner Only)",
