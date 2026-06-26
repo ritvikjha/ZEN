@@ -20,6 +20,7 @@ import time
 import threading
 from dataclasses import dataclass, field
 from typing import Optional
+from google import genai
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  CONFIGURATION
@@ -2404,6 +2405,77 @@ async def on_ready():
             await _setup_uno_emojis(bot, guild)
         except Exception as exc:
             print(f"[UNO] Emoji setup failed for {guild.name}: {exc}")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  AI CHAT COMMAND
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# SETUP INSTRUCTIONS FOR DEPLOYMENT (e.g. on Render):
+# 1. Go to your Render Dashboard -> Your Web Service -> Environment.
+# 2. Add a new Environment Variable with Key: GEMINI_API_KEY
+# 3. Paste your Gemini API key as the Value.
+# 4. Save and deploy! The google-genai library will automatically detect it.
+
+@bot.command(name="ai")
+async def ai_chat(ctx: commands.Context, *, prompt: str = None):
+    """Chat with the Gemini AI."""
+    print(f"[DEBUG] AI command triggered by {ctx.author} with prompt: {prompt}")
+    
+    if not prompt:
+        await ctx.send(embed=discord.Embed(
+            description=f"**Usage:** `{ctx.prefix}ai <your question>`", color=0xFF4444))
+        return
+
+    # Check if API key is present
+    if not os.environ.get("GEMINI_API_KEY"):
+        print("[DEBUG] GEMINI_API_KEY is missing!")
+        await ctx.send(embed=discord.Embed(
+            description="❌ **GEMINI_API_KEY** environment variable is not set. Please set it in your environment.", color=0xFF4444))
+        return
+
+    # Show typing indicator while we wait
+    print("[DEBUG] Showing typing indicator...")
+    async with ctx.typing():
+        try:
+            print("[DEBUG] Initializing Gemini Client...")
+            client = genai.Client()
+            
+            print("[DEBUG] Sending request to Gemini via asyncio.to_thread...")
+            # Using asyncio.to_thread to run the synchronous API call without blocking the bot
+            response = await asyncio.to_thread(
+                client.models.generate_content,
+                model='gemini-2.5-flash',
+                contents=prompt,
+            )
+            print("[DEBUG] Received response from Gemini.")
+            
+            try:
+                answer = response.text
+            except ValueError:
+                # This can happen if the response was blocked by safety filters
+                print("[DEBUG] Safety filter blocked the response.")
+                answer = None
+                
+            if not answer:
+                answer = "*(Received an empty response. The prompt might have been blocked by safety filters.)*"
+            
+            # Discord has a 2000 character limit per message.
+            # We split the answer into chunks of 1900 characters.
+            chunk_size = 1900
+            chunks = [answer[i:i+chunk_size] for i in range(0, len(answer), chunk_size)]
+            
+            print(f"[DEBUG] Sending {len(chunks)} chunks back to Discord...")
+            for i, chunk in enumerate(chunks):
+                if i == 0:
+                    await ctx.reply(chunk)
+                else:
+                    await ctx.send(chunk)
+                
+        except Exception as e:
+            logging.error(f"AI command error: {e}")
+            await ctx.reply(embed=discord.Embed(
+                description=f"❌ **An error occurred:** {str(e)}", color=0xFF4444))
 
 
 @bot.event
