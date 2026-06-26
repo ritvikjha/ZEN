@@ -2037,6 +2037,9 @@ class AtlasGame:
     def validate_answer(self, text: str) -> tuple[bool, str]:
         text = text.strip().lower()
         
+        if len(text) < 3:
+            return False, "Name must be at least **3 characters** long!"
+        
         if not text.startswith(self.current_letter):
             return False, f"Name must start with **{self.current_letter.upper()}**!"
             
