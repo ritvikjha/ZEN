@@ -16,7 +16,7 @@ from discord.ui import View, Button
 from games.trivia_questions import TRIVIA_QUESTIONS
 
 TRIVIA_ROUNDS = 10
-TRIVIA_TIMER = 18
+TRIVIA_TIMER = 10
 RPS_TIMER = 20
 GUESS_MAX = 7
 GUESS_RANGE = (1, 100)
@@ -264,9 +264,12 @@ class TriviaRoundView(View):
                 correct = self.q["options"][self.q["answer"]]
                 await interaction.response.send_message(f"❌ Wrong! Answer was **{correct}**.", ephemeral=True)
             if len(self.game.answered) >= len(self.game.players):
-                if self.game.round_task and not self.game.round_task.done():
-                    self.game.round_task.cancel()
-                await _trivia_end_round(self.game)
+                if not self._round_resolved:
+                    self._round_resolved = True
+                    self.stop()
+                    if self.game.round_task and not self.game.round_task.done():
+                        self.game.round_task.cancel()
+                    await _trivia_end_round(self.game)
         return cb
 
     async def on_timeout(self):
@@ -291,18 +294,8 @@ async def _trivia_send_round(game: TriviaGame):
     embed.add_field(name="Scores", value=game.scoreboard() or "—", inline=False)
     view = TriviaRoundView(game, q)
     game.round_msg = await game.channel.send(embed=embed, view=view)
-    if game.round_task and not game.round_task.done():
-        game.round_task.cancel()
-    game.round_task = asyncio.create_task(_trivia_round_timer(game))
 
 
-async def _trivia_round_timer(game: TriviaGame):
-    try:
-        await asyncio.sleep(TRIVIA_TIMER + 1)
-        if game.channel.id in _active_trivia:
-            await _trivia_end_round(game)
-    except asyncio.CancelledError:
-        pass
 
 
 async def _trivia_end_round(game: TriviaGame):
@@ -314,7 +307,6 @@ async def _trivia_end_round(game: TriviaGame):
             await game.round_msg.edit(view=None)
         except discord.HTTPException:
             pass
-    await asyncio.sleep(1)
     await _trivia_send_round(game)
 
 
