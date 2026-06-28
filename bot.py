@@ -325,6 +325,14 @@ def get_user_level(user_id: int) -> dict:
     return default
 
 
+def get_level_leaderboard(top_n: int = 10) -> list[tuple[str, int, int]]:
+    """Get the top users by level and XP."""
+    if db is not None:
+        cursor = db.levels.find().sort([("level", -1), ("xp", -1)]).limit(top_n)
+        return [(doc["_id"], doc.get("level", 0), doc.get("xp", 0)) for doc in cursor]
+    return []
+
+
 def add_user_xp(user_id: int, xp_amount: int) -> dict:
     """Add XP to a user and return their new data."""
     uid = str(user_id)
@@ -3310,6 +3318,29 @@ async def rank(ctx: commands.Context, member: discord.Member = None):
     embed = discord.Embed(title=f"📈 {target.display_name}'s Rank", color=0x3498DB)
     embed.set_thumbnail(url=target.display_avatar.url)
     embed.description = f"**Level {lvl}**\n`{bar}`\n{xp:,} / {next_xp:,} XP"
+    await ctx.send(embed=embed)
+
+
+@bot.command(name="ranklb", aliases=["leveltop", "xplb"])
+async def ranklb(ctx: commands.Context):
+    """View the top 10 users by chat level."""
+    top = get_level_leaderboard(10)
+    if not top:
+        await ctx.send(embed=discord.Embed(
+            description="No one has any levels yet!", color=0xFF4444))
+        return
+    medals = ["🥇", "🥈", "🥉"]
+    lines = []
+    for i, (uid, lvl, xp) in enumerate(top):
+        prefix = medals[i] if i < 3 else f"`#{i+1}`"
+        lines.append(f"{prefix} <@{uid}> — Level {lvl} ({xp:,} XP)")
+    
+    embed = discord.Embed(
+        title="🏆 Level Leaderboard — Top 10",
+        description="\n".join(lines), color=Colors.GOLD)
+    
+    # Use the same footer logic as other leaderboards
+    embed.set_footer(text=BOT_FOOTER if 'BOT_FOOTER' in globals() else "Level Leaderboard")
     await ctx.send(embed=embed)
 
 
