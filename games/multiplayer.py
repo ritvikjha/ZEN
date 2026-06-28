@@ -17,7 +17,7 @@ from games.trivia_questions import TRIVIA_QUESTIONS
 
 TRIVIA_ROUNDS = 10
 TRIVIA_TIMER = 10
-RPS_TIMER = 20
+RPS_TIMER = 10
 GUESS_MAX = 7
 GUESS_RANGE = (1, 100)
 
@@ -422,9 +422,12 @@ class RPSRoundView(View):
             await interaction.response.send_message(
                 f"{RPS_EMOJI[move]} Locked in **{move.title()}**!", ephemeral=True)
             if all(p.choice for p in self.game.alive):
-                if self.game.round_task and not self.game.round_task.done():
-                    self.game.round_task.cancel()
-                await _rps_resolve_round(self.game)
+                if not self._round_resolved:
+                    self._round_resolved = True
+                    self.stop()
+                    if self.game.round_task and not self.game.round_task.done():
+                        self.game.round_task.cancel()
+                    await _rps_resolve_round(self.game)
         return cb
 
     async def on_timeout(self):
@@ -449,18 +452,8 @@ async def _rps_send_round(game: RPSGame):
     )
     view = RPSRoundView(game)
     game.round_msg = await game.channel.send(embed=embed, view=view)
-    if game.round_task and not game.round_task.done():
-        game.round_task.cancel()
-    game.round_task = asyncio.create_task(_rps_round_timer(game))
 
 
-async def _rps_round_timer(game: RPSGame):
-    try:
-        await asyncio.sleep(RPS_TIMER + 1)
-        if game.channel.id in _active_rps:
-            await _rps_resolve_round(game)
-    except asyncio.CancelledError:
-        pass
 
 
 def _rps_eliminate_losers(alive: list[RPSPlayer], choices: dict[int, str]) -> list[RPSPlayer]:
