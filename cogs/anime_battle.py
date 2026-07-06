@@ -336,12 +336,37 @@ class AnimeBattle(commands.Cog, name="Anime Battles"):
         self.bot = bot
 
     @commands.command(name="team")
-    async def team(self, ctx: commands.Context, action: str = None, *, names: str = None):
+    async def team(self, ctx: commands.Context, *, args: str = None):
         """View or set your 3-character battle team. Usage: Zteam set <char1>, <char2>, <char3>"""
         uid = str(ctx.author.id)
         inv = get_doc("anime_inventory", uid)
         
-        if action == "set":
+        if not args:
+            # View team
+            team = inv.get("battle_team")
+            if not team:
+                await ctx.send(embed=discord.Embed(description="🚩 No team set! Use `Zteam set <char1>, <char2>, <char3>`", color=Colors.ERROR))
+                return
+                
+            desc = ""
+            for i, char_data in enumerate(team):
+                target = get_character(char_data["name"])
+                if target:
+                    elem_sym = ELEMENT_EMOJIS.get(target.element, "")
+                    desc += f"**{i+1}.** {target.name} — Lv.{char_data['level']} {elem_sym}\n"
+                
+            embed = discord.Embed(
+                title=f"⚔️ {ctx.author.display_name}'s Battle Team",
+                description=desc,
+                color=Colors.SUCCESS
+            )
+            embed.set_thumbnail(url=ctx.author.display_avatar.url)
+            await ctx.send(embed=embed)
+            return
+
+        args = args.strip()
+        if args.lower().startswith("set"):
+            names = args[3:].strip()
             if not names:
                 await ctx.send(embed=discord.Embed(description="❌ You must provide exactly 3 character names.\nExample: `Zteam set Naruto, Luffy, Goku`", color=Colors.ERROR))
                 return
@@ -379,29 +404,6 @@ class AnimeBattle(commands.Cog, name="Anime Battles"):
             save_doc("anime_inventory", uid, inv)
             await ctx.send(embed=discord.Embed(description="✅ Battle team updated successfully!", color=Colors.SUCCESS))
             
-        else:
-            # View team
-            team = inv.get("battle_team", [])
-            if not inv.get("battle_team"):
-                await ctx.send(embed=discord.Embed(description="🚩 No team set! Use `Zteam set <char1>, <char2>, <char3>`", color=Colors.ERROR))
-                return
-                
-            desc = ""
-            for i, c in enumerate(team):
-                base = get_character(c["name"])
-                lvl = c.get('level', 1)
-                asc = c.get('ascension_tier', 0)
-                asc_tag = f" `+{asc}`" if asc > 0 else ""
-                desc += f"`{i+1}.` {base.emoji} **{base.name}** {base.element_emoji} — Lv.{lvl}{asc_tag}\n"
-                
-            embed = discord.Embed(
-                title=f"⚔️ {ctx.author.display_name}'s Battle Team",
-                description=desc,
-                color=Colors.INFO
-            )
-            embed.set_footer(text="ZEN Bot • Anime RPG")
-            await ctx.send(embed=embed)
-
     @commands.command(name="battle")
     async def battle(self, ctx: commands.Context, opponent: discord.Member = None, bet: int = 0):
         """Challenge someone to an anime battle!"""
