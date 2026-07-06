@@ -280,7 +280,7 @@ def generate_card(
     # ── Stat bars ────────────────────────────────────────────────────────
     bar_y_start = tag_y + 28
     bar_h = 10
-    bar_w = 150
+    bar_w = 110
     label_x = BORDER + 14
     bar_x = label_x + 50
     bar_gap = 24
