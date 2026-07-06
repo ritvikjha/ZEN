@@ -53,7 +53,7 @@ def load_config() -> dict:
             "token": token,
             "owner_id": int(os.environ.get("OWNER_ID", "0")),
             "prefix": os.environ.get("PREFIX", "Z"),
-            "starting_balance": int(os.environ.get("STARTING_BALANCE", "100000")),
+            "starting_balance": int(os.environ.get("STARTING_BALANCE", "5000")),
         }
     if os.path.exists(CONFIG_PATH):
         with open(CONFIG_PATH, "r") as f:
@@ -62,7 +62,7 @@ def load_config() -> dict:
         "token": "YOUR_BOT_TOKEN_HERE",
         "owner_id": 0,
         "prefix": "Z",
-        "starting_balance": 100000,
+        "starting_balance": 5000,
     }
     with open(CONFIG_PATH, "w") as f:
         json.dump(default, f, indent=4)
@@ -109,7 +109,7 @@ def _save_all(data: dict) -> None:
     os.replace(tmp, DATA_PATH)
 
 
-def get_balance(user_id: int, starting: int = 500) -> int:
+def get_balance(user_id: int, starting: int = 5000) -> int:
     uid = str(user_id)
     if db is not None:
         doc = db.balances.find_one({"_id": uid})
@@ -140,7 +140,7 @@ def set_balance(user_id: int, amount: int) -> int:
         return new_bal
 
 
-def add_balance(user_id: int, amount: int, starting: int = 500) -> int:
+def add_balance(user_id: int, amount: int, starting: int = 5000) -> int:
     uid = str(user_id)
     if db is not None:
         doc = db.balances.find_one({"_id": uid})
@@ -162,7 +162,7 @@ def add_balance(user_id: int, amount: int, starting: int = 500) -> int:
         return new
 
 
-def transfer(from_id: int, to_id: int, amount: int, starting: int = 500) -> tuple[int, int]:
+def transfer(from_id: int, to_id: int, amount: int, starting: int = 5000) -> tuple[int, int]:
     f_uid, t_uid = str(from_id), str(to_id)
     if db is not None:
         f_doc = db.balances.find_one({"_id": f_uid}) or {"bal": starting}
@@ -194,6 +194,26 @@ def get_leaderboard(top_n: int = 10) -> list[tuple[str, int]]:
 
     data = _load_all()
     return sorted(data.items(), key=lambda x: x[1], reverse=True)[:top_n]
+
+
+def reset_all_balances(target_amount: int = 5000) -> int:
+    count = 0
+    if db is not None:
+        try:
+            res = db.balances.update_many({}, {"$set": {"bal": target_amount}})
+            count += res.modified_count
+        except Exception as e:
+            print(f"Error resetting MongoDB balances: {e}")
+    with _data_lock:
+        try:
+            data = _load_all()
+            for uid in data:
+                data[uid] = target_amount
+                count += 1
+            _save_all(data)
+        except Exception as e:
+            print(f"Error resetting local JSON balances: {e}")
+    return count
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -437,7 +457,7 @@ bot = commands.Bot(
     help_command=None,
 )
 bot.app_config = config
-STARTING = config.get("starting_balance", 100000)
+STARTING = config.get("starting_balance", 5000)
 
 
 def coin(amount: int) -> str:
@@ -616,6 +636,20 @@ async def setcoins(ctx: commands.Context, member: discord.Member = None, amount:
             f"**Target:** {member.mention}\n"
             f"**New balance:** {coin(new_bal)}"
         ), color=0x9B59B6)
+    embed.set_footer(text=f"Executed by {ctx.author}")
+    await ctx.send(embed=embed)
+
+
+@bot.command(name="resetallcoins", aliases=["resetallbal", "resetcoins", "resetbal"])
+@commands.is_owner()
+async def resetallcoins(ctx: commands.Context):
+    """🔧 [Owner] Reset all user balances to 5,000 coins."""
+    count = reset_all_balances(5000)
+    embed = discord.Embed(
+        title="🔧 Admin: All Balances Reset",
+        description=f"Successfully reset **{count}** user balances to **🪙 5,000**!",
+        color=0xE74C3C
+    )
     embed.set_footer(text=f"Executed by {ctx.author}")
     await ctx.send(embed=embed)
 
@@ -2467,6 +2501,20 @@ async def on_ready():
             await _setup_uno_emojis(bot, guild)
         except Exception as exc:
             print(f"[UNO] Emoji setup failed for {guild.name}: {exc}")
+
+    # One-time migration: reset balances from 100k era to 5k
+    try:
+        if db is not None:
+            mig = db.metadata.find_one({"_id": "migrated_to_5k"})
+            if not mig:
+                cnt = reset_all_balances(5000)
+                db.metadata.insert_one({"_id": "migrated_to_5k", "done": True})
+                print(f"[MIGRATION] Reset {cnt} user balances to 5,000 in MongoDB!")
+        else:
+            cnt = reset_all_balances(5000)
+            print(f"[MIGRATION] Reset {cnt} local user balances to 5,000!")
+    except Exception as exc:
+        print(f"[MIGRATION] Balance reset failed: {exc}")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

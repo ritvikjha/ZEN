@@ -33,7 +33,7 @@ def _save_all(data: dict) -> None:
     os.replace(tmp, DATA_PATH)  # Atomic on most OSes
 
 
-def get_balance(user_id: int, starting_balance: int = 500) -> int:
+def get_balance(user_id: int, starting_balance: int = 5000) -> int:
     """Return the balance for *user_id*, creating an entry if needed."""
     uid = str(user_id)
     if db is not None:
@@ -66,7 +66,7 @@ def set_balance(user_id: int, amount: int) -> int:
         return new_bal
 
 
-def add_balance(user_id: int, amount: int, starting_balance: int = 500) -> int:
+def add_balance(user_id: int, amount: int, starting_balance: int = 5000) -> int:
     """Add *amount* (can be negative) to *user_id*'s balance. Returns the new balance."""
     uid = str(user_id)
     if db is not None:
@@ -89,7 +89,7 @@ def add_balance(user_id: int, amount: int, starting_balance: int = 500) -> int:
         return new
 
 
-def transfer(from_id: int, to_id: int, amount: int, starting_balance: int = 500) -> tuple[int, int]:
+def transfer(from_id: int, to_id: int, amount: int, starting_balance: int = 5000) -> tuple[int, int]:
     """
     Transfer *amount* coins from one user to another.
     Returns (new_from_balance, new_to_balance).
@@ -128,3 +128,24 @@ def get_leaderboard(top_n: int = 10) -> list[tuple[str, int]]:
     data = _load_all()
     sorted_data = sorted(data.items(), key=lambda x: x[1], reverse=True)
     return sorted_data[:top_n]
+
+
+def reset_all_balances(target_amount: int = 5000) -> int:
+    """Reset all user balances to target_amount in MongoDB and local JSON."""
+    count = 0
+    if db is not None:
+        try:
+            res = db.balances.update_many({}, {"$set": {"bal": target_amount}})
+            count += res.modified_count
+        except Exception as e:
+            print(f"Error resetting MongoDB balances: {e}")
+    with _lock:
+        try:
+            data = _load_all()
+            for uid in data:
+                data[uid] = target_amount
+                count += 1
+            _save_all(data)
+        except Exception as e:
+            print(f"Error resetting local JSON balances: {e}")
+    return count
