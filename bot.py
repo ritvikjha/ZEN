@@ -2678,6 +2678,12 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
         await ctx.send(embed=discord.Embed(
             title="❌ Invalid Argument", description=str(error), color=0xFF4444))
         return
+    if isinstance(error, commands.TooManyArguments):
+        await ctx.send(embed=discord.Embed(
+            title="❌ Too Many Arguments", 
+            description=f"You provided too many arguments for this command. If your character names have spaces, make sure to separate them with commas!\n\n**Example:** `Zteam set Sosuke Aizen, Sung Jinwoo, Askeladd`", 
+            color=0xFF4444))
+        return
     if isinstance(error, commands.NotOwner):
         await ctx.send(embed=discord.Embed(
             title="🔒 Access Denied",
