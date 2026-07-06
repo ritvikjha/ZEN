@@ -7,7 +7,7 @@ from discord.ext import commands
 import random
 import asyncio
 
-from utils.db import get_doc, save_doc, increment_field
+from utils.db import get_doc, save_doc, increment_field, update_doc
 from utils.data import get_balance, add_balance
 from utils.anime_data import (
     ALL_CHARACTERS, TOTAL_CHARACTERS, CATCH_COST, CATCH_10_COST,
@@ -474,9 +474,6 @@ class AnimeCollection(commands.Cog, name="Anime Collection (Gacha)"):
             
         await ctx.send(embed=embed, file=file)
 
-
-async def setup(bot):
-    await bot.add_cog(AnimeCollection(bot))
 
 async def setup(bot):
     await bot.add_cog(AnimeCollection(bot))

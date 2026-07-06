@@ -177,7 +177,7 @@ class AnimeInventory(commands.Cog, name="Anime Inventory & Shop"):
         if has_items:
             embed.add_field(name="📦 Consumables", value=item_text, inline=False)
         else:
-            embed.add_field(name="📦 Consumables", value="*No items — visit `Zshop`!*", inline=False)
+            embed.add_field(name="📦 Consumables", value="*No items — visit `Zitemshop`!*", inline=False)
             
         # Check active buffs
         active_buffs = []

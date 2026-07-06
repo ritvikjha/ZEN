@@ -383,6 +383,14 @@ ANIME_CARDS = {
     "thorkell": {"name": "Thorkell", "series": "Vinland Saga", "rarity": "Legendary", "element": "Dark", "stats": {"hp": 2500, "atk": 250, "def": 250, "spd": 250}, "special_move": {"name": "Dark Blast", "damage_multiplier": 2.5}, "image_url": "https://placeholder.com", "quote": "Nothing personal."},
     "bjorn": {"name": "Bjorn", "series": "Vinland Saga", "rarity": "Epic", "element": "Wind", "stats": {"hp": 1800, "atk": 180, "def": 180, "spd": 180}, "special_move": {"name": "Wind Burst", "damage_multiplier": 2.0}, "image_url": "https://placeholder.com", "quote": "For my friends!"},
     "floki": {"name": "Floki", "series": "Vinland Saga", "rarity": "Legendary", "element": "Light", "stats": {"hp": 2500, "atk": 250, "def": 250, "spd": 250}, "special_move": {"name": "Light Slash", "damage_multiplier": 2.5}, "image_url": "https://placeholder.com", "quote": "You underestimate me."},
+    # ── High School DxD ──────────────────────────────────────────────────────
+    "issei_hyoudou": {"name": "Issei Hyoudou", "series": "High School DxD", "rarity": "Mythic", "element": "Fire", "stats": {"hp": 3500, "atk": 350, "def": 350, "spd": 350}, "special_move": {"name": "Boosted Gear", "damage_multiplier": 3.0}, "image_url": "https://placeholder.com", "quote": "I will become a Harem King!"},
+    "rias_gremory": {"name": "Rias Gremory", "series": "High School DxD", "rarity": "Mythic", "element": "Dark", "stats": {"hp": 3500, "atk": 350, "def": 350, "spd": 350}, "special_move": {"name": "Power of Destruction", "damage_multiplier": 3.0}, "image_url": "https://placeholder.com", "quote": "I am the Crimson-Haired Ruin Princess."},
+    "akeno_himejima": {"name": "Akeno Himejima", "series": "High School DxD", "rarity": "Legendary", "element": "Lightning", "stats": {"hp": 2500, "atk": 250, "def": 250, "spd": 250}, "special_move": {"name": "Holy Lightning", "damage_multiplier": 2.5}, "image_url": "https://placeholder.com", "quote": "Ara ara, how exciting."},
+    "koneko_toujou": {"name": "Koneko Toujou", "series": "High School DxD", "rarity": "Rare", "element": "Nature", "stats": {"hp": 1200, "atk": 120, "def": 120, "spd": 120}, "special_move": {"name": "Nekomata Fury", "damage_multiplier": 1.5}, "image_url": "https://placeholder.com", "quote": "...Pervert."},
+    "asia_argento": {"name": "Asia Argento", "series": "High School DxD", "rarity": "Epic", "element": "Light", "stats": {"hp": 1800, "atk": 180, "def": 180, "spd": 180}, "special_move": {"name": "Twilight Healing", "damage_multiplier": 2.0}, "image_url": "https://placeholder.com", "quote": "I believe in everyone."},
+    "xenovia_quarta": {"name": "Xenovia Quarta", "series": "High School DxD", "rarity": "Legendary", "element": "Ice", "stats": {"hp": 2500, "atk": 250, "def": 250, "spd": 250}, "special_move": {"name": "Durandal Strike", "damage_multiplier": 2.5}, "image_url": "https://placeholder.com", "quote": "My sword shall judge you."},
+    "yuuto_kiba": {"name": "Yuuto Kiba", "series": "High School DxD", "rarity": "Common", "element": "Wind", "stats": {"hp": 800, "atk": 80, "def": 80, "spd": 80}, "special_move": {"name": "Sword Birth", "damage_multiplier": 1.2}, "image_url": "https://placeholder.com", "quote": "I fight for my comrades."},
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -429,9 +437,50 @@ for _char in ALL_CHARACTERS:
     _name_lookup[_char.name.lower()] = _char
     _name_lookup[_char.id.lower()] = _char
 
+# First-name lookup (e.g. "armin" → Armin Arlert, "goku" → Goku)
+_first_name_lookup: dict[str, AnimeCharacter] = {}
+for _char in ALL_CHARACTERS:
+    first = _char.name.split()[0].lower()
+    # Only store if the first name is unique (avoid collisions)
+    if first not in _first_name_lookup:
+        _first_name_lookup[first] = _char
+    else:
+        # Mark as ambiguous by setting to None
+        _first_name_lookup[first] = None
+
 
 def get_character(name_or_id: str) -> Optional[AnimeCharacter]:
-    """Look up an AnimeCharacter by name or ID (case-insensitive). Returns None if not found."""
+    """Look up an AnimeCharacter by name or ID (case-insensitive).
+    
+    Supports:
+    - Exact name match: "Armin Arlert"
+    - Exact ID match: "armin_arlert"
+    - First-name match: "armin" → Armin Arlert
+    - Substring match: "luffy" → Monkey D. Luffy
+    
+    Returns None if not found.
+    """
     if not name_or_id:
         return None
-    return _name_lookup.get(name_or_id.lower().strip())
+    key = name_or_id.lower().strip()
+    
+    # 1) Exact match (full name or ID)
+    if key in _name_lookup:
+        return _name_lookup[key]
+    
+    # 2) First-name match
+    first_match = _first_name_lookup.get(key)
+    if first_match is not None:  # None means ambiguous
+        return first_match
+    
+    # 3) Substring match — find characters whose name contains the query
+    candidates = [c for c in ALL_CHARACTERS if key in c.name.lower()]
+    if len(candidates) == 1:
+        return candidates[0]
+    
+    # 4) Substring match on ID (underscored format)
+    candidates = [c for c in ALL_CHARACTERS if key in c.id.lower()]
+    if len(candidates) == 1:
+        return candidates[0]
+    
+    return None

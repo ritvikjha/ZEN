@@ -40,6 +40,7 @@ series_data = {
     "Cowboy Bebop": ["Spike Spiegel", "Jet Black", "Faye Valentine", "Edward", "Ein", "Vicious", "Julia"],
     "Neon Genesis Evangelion": ["Shinji Ikari", "Asuka Langley Soryu", "Rei Ayanami", "Misato Katsuragi", "Gendo Ikari", "Kaworu Nagisa", "Ritsuko Akagi"],
     "Vinland Saga": ["Thorfinn", "Askeladd", "Canute", "Thors", "Thorkell", "Bjorn", "Floki"],
+    "High School DxD": ["Issei Hyoudou", "Rias Gremory", "Akeno Himejima", "Koneko Toujou", "Asia Argento", "Xenovia Quarta", "Yuuto Kiba"],
 }
 
 JIKAN_API = "https://api.jikan.moe/v4"
