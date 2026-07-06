@@ -2688,6 +2688,14 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
         await ctx.send(embed=discord.Embed(
             title="❌ Check Failed", description=str(error), color=0xFF4444))
         return
+    if isinstance(error, commands.CommandInvokeError):
+        await ctx.send(embed=discord.Embed(
+            title="⚠️ Internal Error", 
+            description=f"An unexpected error occurred in the command: `{error.original}`\n\nPlease report this to the developer.", 
+            color=0xFF4444))
+        raise error
+    
+    await ctx.send(f"⚠️ Unhandled error: `{error}`")
     raise error
 
 
