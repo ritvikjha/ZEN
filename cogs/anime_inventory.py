@@ -90,7 +90,8 @@ class AnimeInventory(commands.Cog, name="Anime Inventory & Shop"):
         
         for item_id, data in ITEMS.items():
             embed.description += f"{data['name']}  —  🪙 **{data['price']:,}**\n`{item_id}` · *{data['desc']}*\n\n"
-            
+        
+        embed.description += "💡 *Looking for profile Color Roles instead? Use `Zcolorshop`!*"
         embed.set_footer(text="ZEN Bot • Anime RPG")
         await ctx.send(embed=embed)
 

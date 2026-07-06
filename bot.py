@@ -853,8 +853,8 @@ async def stats_cmd(ctx: commands.Context):
     await ctx.send(embed=embed)
 
 
-@bot.command(name="shop")
-async def shop(ctx: commands.Context):
+@bot.command(name="colorshop", aliases=["roleshop", "colorroles", "cshop"])
+async def colorshop(ctx: commands.Context):
     """View the color roles available for purchase."""
     embed = discord.Embed(
         title="🛒 Color Role Shop",
@@ -875,7 +875,7 @@ async def buy(ctx: commands.Context, role_name: str = None):
         return
     role_name = role_name.lower()
     if role_name not in COLOR_ROLES:
-        await ctx.send(embed=discord.Embed(description="❌ Invalid role. Check `Zshop`.", color=Colors.ERROR))
+        await ctx.send(embed=discord.Embed(description="❌ Invalid role. Check `Zcolorshop`.", color=Colors.ERROR))
         return
         
     role_data = COLOR_ROLES[role_name]
@@ -2376,7 +2376,7 @@ class HelpSelect(Select):
                 name="🎨 Profile & Shop",
                 value=(
                     f"`{p}profile` — View your rich user profile & game stats\n"
-                    f"`{p}shop` — View available color roles\n"
+                    f"`{p}colorshop` — View available color roles\n"
                     f"`{p}buy [role]` — Purchase a color role"
                 ), inline=False)
         elif self.values[0] == "Anime RPG":

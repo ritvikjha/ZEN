@@ -65,7 +65,7 @@ class AnimeEnchant(commands.Cog, name="Anime Enchant & Ascend"):
                 return c, idx
         return None, -1
 
-    @commands.command(name="stats")
+    @commands.command(name="charstats", aliases=["cstats", "astats"])
     async def view_stats(self, ctx: commands.Context, *, char_name: str = None):
         """View the detailed stats of a character you own."""
         if not char_name:
@@ -127,7 +127,7 @@ class AnimeEnchant(commands.Cog, name="Anime Enchant & Ascend"):
         await ctx.send(embed=embed, file=file)
 
 
-    @commands.command(name="enchant", aliases=["level"])
+    @commands.command(name="enchant", aliases=["levelup", "train", "upgrade"])
     async def enchant(self, ctx: commands.Context, *, char_name: str = None):
         """Spend coins to train and level up a character."""
         if not char_name:
