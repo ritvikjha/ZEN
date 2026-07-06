@@ -426,7 +426,7 @@ class DungeonView(View):
             
             if self.state == "battling":
                 embed.title = f"⚔️ BATTLING — Floor {self.floor}/{FLOORS_PER_DUNGEON}"
-                embed.color = Colors.GAMBLING
+                embed.color = Colors.WARNING
             
             # Combat log (last 8 lines to see more action)
             log_display = self.last_log[-8:] if len(self.last_log) > 8 else self.last_log
