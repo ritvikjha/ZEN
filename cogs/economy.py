@@ -192,15 +192,57 @@ class Economy(commands.Cog, name="Economy"):
 
         _daily_cooldowns[ctx.author.id] = now
         new_bal = add_balance(ctx.author.id, DAILY_AMOUNT, self.starting)
+
+        # ── Random Anime Card Drop ──
+        try:
+            from cogs.anime_collection import _pull_character
+            from utils.db import get_doc, save_doc
+            from utils.anime_data import DUPLICATE_FRAGMENTS
+            from utils.card_generator import generate_card
+
+            uid = str(ctx.author.id)
+            char = _pull_character()
+            inv = get_doc("anime_inventory", uid)
+            existing_chars = inv.get("characters", [])
+            is_dupe = any(c["name"] == char.name for c in existing_chars)
+
+            if is_dupe:
+                frags_gained = DUPLICATE_FRAGMENTS.get(char.rarity, 5)
+                inv["star_fragments"] = inv.get("star_fragments", 0) + frags_gained
+                drop_text = f"\n\n🎴 **Daily Card Drop:** `{char.name}` ({char.stars} • {char.rarity_name})\n⭐ *Duplicate!* Converted into **+{frags_gained} Star Fragments**!"
+            else:
+                new_char_data = {
+                    "name": char.name,
+                    "level": 1,
+                    "xp": 0,
+                    "ascension_tier": 0
+                }
+                if "characters" not in inv:
+                    inv["characters"] = []
+                inv["characters"].append(new_char_data)
+                drop_text = f"\n\n🎴 **Daily Card Drop:** `{char.name}` ({char.stars} • {char.rarity_name})\n🎉 *NEW Character Added to Collection!*"
+
+            save_doc("anime_inventory", uid, inv)
+            buf = generate_card(char)
+            card_file = discord.File(buf, filename="daily_drop.png")
+        except Exception as e:
+            print(f"Warning: daily card drop failed: {e}")
+            drop_text = ""
+            card_file = None
+
         embed = discord.Embed(
             title="📅 Daily Bonus Claimed!",
             description=(
                 f"You received {self.coin(DAILY_AMOUNT)} Coins!\n"
-                f"**New balance:** {self.coin(new_bal)}"
+                f"**New balance:** {self.coin(new_bal)}" + drop_text
             ),
             color=0x2ECC71,
         )
-        await ctx.send(embed=embed)
+        if card_file:
+            embed.set_image(url="attachment://daily_drop.png")
+            await ctx.send(embed=embed, file=card_file)
+        else:
+            await ctx.send(embed=embed)
 
     # ── !leaderboard / !lb ────────────────────────────────────────────────
     @commands.command(name="leaderboard", aliases=["lb"])
