@@ -49,6 +49,40 @@ def _pull_character(force_rarity_min: int = 1, lucky_charm: bool = False) -> Ani
             
     return random.choices(pool, weights=weights, k=1)[0]
 
+class CollectionPaginator(discord.ui.View):
+    def __init__(self, target_name: str, header: str, pages: list[list[str]]):
+        super().__init__(timeout=120.0)
+        self.target_name = target_name
+        self.header = header
+        self.pages = pages
+        self.current_page = 0
+        self.update_buttons()
+
+    def update_buttons(self):
+        self.prev_button.disabled = self.current_page == 0
+        self.next_button.disabled = self.current_page == len(self.pages) - 1
+
+    def get_embed(self) -> discord.Embed:
+        embed = discord.Embed(
+            title=f"🎴 {self.target_name}'s Collection",
+            description=self.header + "\n".join(self.pages[self.current_page]),
+            color=Colors.PURPLE
+        )
+        embed.set_footer(text=f"Page {self.current_page + 1}/{len(self.pages)} • Showing top characters")
+        return embed
+
+    @discord.ui.button(label="◀ Prev", style=discord.ButtonStyle.blurple)
+    async def prev_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.current_page -= 1
+        self.update_buttons()
+        await interaction.response.edit_message(embed=self.get_embed(), view=self)
+
+    @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.blurple)
+    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.current_page += 1
+        self.update_buttons()
+        await interaction.response.edit_message(embed=self.get_embed(), view=self)
+
 
 class AnimeCollection(commands.Cog, name="Anime Collection (Gacha)"):
     """🎴 Pull and collect famous anime characters."""
@@ -329,14 +363,17 @@ class AnimeCollection(commands.Cog, name="Anime Collection (Gacha)"):
         prog_bar = "█" * prog_filled + "░" * (10 - prog_filled)
         header = f"**{len(owned)}** / {TOTAL_CHARACTERS} characters collected  `[{prog_bar}]` {pct}%\n{'━' * 28}\n"
         
-        embed = discord.Embed(
-            title=f"🎴 {target.display_name}'s Collection",
-            description=header + "\n".join(pages[0]),
-            color=Colors.PURPLE
-        )
         if len(pages) > 1:
-            embed.set_footer(text=f"Page 1/{len(pages)} • Showing top characters")
-        await ctx.send(embed=embed)
+            view = CollectionPaginator(target.display_name, header, pages)
+            await ctx.send(embed=view.get_embed(), view=view)
+        else:
+            embed = discord.Embed(
+                title=f"🎴 {target.display_name}'s Collection",
+                description=header + "\n".join(pages[0]),
+                color=Colors.PURPLE
+            )
+            embed.set_footer(text="Page 1/1 • Showing top characters")
+            await ctx.send(embed=embed)
 
 
     @commands.command(name="dex")
