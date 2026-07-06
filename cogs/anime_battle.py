@@ -11,7 +11,7 @@ import asyncio
 
 from utils.db import get_doc, update_doc, increment_field, save_doc
 from utils.data import get_balance, add_balance
-from utils.anime_data import get_character, AnimeCharacter, get_element_advantage
+from utils.anime_data import get_character, AnimeCharacter, get_element_advantage, ELEMENT_EMOJIS
 from cogs.anime_enchant import calculate_stats
 
 # UI Constants
