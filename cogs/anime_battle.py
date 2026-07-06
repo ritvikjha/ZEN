@@ -9,7 +9,7 @@ from discord.ui import View, Button
 import random
 import asyncio
 
-from utils.db import get_doc, update_doc, increment_field
+from utils.db import get_doc, update_doc, increment_field, save_doc
 from utils.data import get_balance, add_balance
 from utils.anime_data import get_character, AnimeCharacter, get_element_advantage
 from cogs.anime_enchant import calculate_stats
