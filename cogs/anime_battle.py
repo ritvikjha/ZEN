@@ -336,19 +336,29 @@ class AnimeBattle(commands.Cog, name="Anime Battles"):
         self.bot = bot
 
     @commands.command(name="team")
-    async def team(self, ctx: commands.Context, action: str = None, c1: str = None, c2: str = None, c3: str = None):
-        """View or set your 3-character battle team. Usage: Zteam set <char1> <char2> <char3>"""
+    async def team(self, ctx: commands.Context, action: str = None, *, names: str = None):
+        """View or set your 3-character battle team. Usage: Zteam set <char1>, <char2>, <char3>"""
         uid = str(ctx.author.id)
         inv = get_doc("anime_inventory", uid)
         
         if action == "set":
-            if not c1 or not c2 or not c3:
-                await ctx.send(embed=discord.Embed(description="❌ You must provide exactly 3 character names.\nExample: `Zteam set Naruto Luffy Goku`", color=Colors.ERROR))
+            if not names:
+                await ctx.send(embed=discord.Embed(description="❌ You must provide exactly 3 character names.\nExample: `Zteam set Naruto, Luffy, Goku`", color=Colors.ERROR))
+                return
+            
+            # Try splitting by comma first, otherwise by space
+            if "," in names:
+                chars_to_set = [n.strip() for n in names.split(",") if n.strip()]
+            else:
+                chars_to_set = [n.strip() for n in names.split() if n.strip()]
+
+            if len(chars_to_set) != 3:
+                await ctx.send(embed=discord.Embed(description="❌ You must provide exactly 3 character names.\nIf names have spaces, separate them with commas.\nExample: `Zteam set Rem, Yuji Itadori, Genos`", color=Colors.ERROR))
                 return
                 
             chars_owned = inv.get("characters", [])
             team = []
-            for name in [c1, c2, c3]:
+            for name in chars_to_set:
                 target = get_character(name)
                 if not target:
                     await ctx.send(embed=discord.Embed(description=f"❌ Unknown character: {name}", color=Colors.ERROR))
