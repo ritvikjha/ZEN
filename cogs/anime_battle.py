@@ -382,8 +382,8 @@ class AnimeBattle(commands.Cog, name="Anime Battles"):
         else:
             # View team
             team = inv.get("battle_team", [])
-            if not team:
-                await ctx.send(embed=discord.Embed(description="📭 No team set! Use `Zteam set <c1> <c2> <c3>`", color=Colors.INFO))
+            if not inv.get("battle_team"):
+                await ctx.send(embed=discord.Embed(description="🚩 No team set! Use `Zteam set <char1>, <char2>, <char3>`", color=Colors.ERROR))
                 return
                 
             desc = ""
