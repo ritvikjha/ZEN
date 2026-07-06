@@ -416,7 +416,7 @@ class DungeonView(View):
             embed.set_footer(text=f"Floors Cleared: {self.floors_cleared} • ZEN Bot")
             return embed
         
-        elif self.state == "battle_result":
+        elif self.state in ("battle_result", "battling"):
             won = any(f.is_alive for f in self.fighters)
             
             embed = discord.Embed(
@@ -424,24 +424,31 @@ class DungeonView(View):
                 color=Colors.SUCCESS if won else Colors.ERROR
             )
             
-            # Combat log (last 6 lines)
-            log_display = self.last_log[-6:] if len(self.last_log) > 6 else self.last_log
+            if self.state == "battling":
+                embed.title = f"⚔️ BATTLING — Floor {self.floor}/{FLOORS_PER_DUNGEON}"
+                embed.color = Colors.GAMBLING
+            
+            # Combat log (last 8 lines to see more action)
+            log_display = self.last_log[-8:] if len(self.last_log) > 8 else self.last_log
             embed.description = "```\n" + "\n".join(log_display) + "\n```" if log_display else ""
             
-            if won:
+            if self.state == "battle_result" and won:
                 embed.add_field(name="🎁 Floor Loot", value=format_rewards(self.last_rewards), inline=True)
             
             embed.add_field(name="👥 Team Status", value=self._get_team_status(), inline=False)
             
-            # Running total
-            total_text = format_rewards(self.total_rewards)
-            embed.add_field(name="💰 Total Earned", value=total_text, inline=False)
-            
-            if not won:
-                embed.title = f"💀 DEFEATED — {d['name']}"
-                embed.set_footer(text=f"Made it to Floor {self.floor} • ZEN Bot")
+            if self.state == "battle_result":
+                # Running total
+                total_text = format_rewards(self.total_rewards)
+                embed.add_field(name="💰 Total Earned", value=total_text, inline=False)
+                
+                if not won:
+                    embed.title = f"💀 DEFEATED — {d['name']}"
+                    embed.set_footer(text=f"Made it to Floor {self.floor} • ZEN Bot")
+                else:
+                    embed.set_footer(text=f"Floors Cleared: {self.floors_cleared}/{FLOORS_PER_DUNGEON} • ZEN Bot")
             else:
-                embed.set_footer(text=f"Floors Cleared: {self.floors_cleared}/{FLOORS_PER_DUNGEON} • ZEN Bot")
+                embed.set_footer(text=f"Fighting... • ZEN Bot")
             
             return embed
         
@@ -476,7 +483,28 @@ class DungeonView(View):
         
         # Run the auto-battle
         won, log = simulate_floor_battle(self.fighters, self.current_enemy)
-        self.last_log = log
+        # Display the log turn by turn!
+        await interaction.response.defer()
+        
+        self.state = "battling"
+        # Temporarily disable buttons
+        for child in self.children:
+            child.disabled = True
+            
+        self.last_log = []
+        for line in log:
+            self.last_log.append(line)
+            # Keep log relatively short so embed doesn't explode
+            if len(self.last_log) > 10:
+                self.last_log.pop(0)
+            
+            try:
+                await interaction.message.edit(embed=self.build_embed(), view=self)
+            except discord.HTTPException:
+                pass # Ignore if it edits too fast
+            await asyncio.sleep(0.8) # Suspense!
+            
+        self.last_log = log # Restore full log for final result
         
         if won:
             self.floors_cleared += 1
@@ -497,11 +525,17 @@ class DungeonView(View):
             if self.floor >= FLOORS_PER_DUNGEON:
                 self.state = "finished"
                 self._disable_all_except()
+            else:
+                for child in self.children:
+                    child.disabled = False
         else:
             self.state = "battle_result"
             self._disable_all_except()
         
-        await interaction.response.edit_message(embed=self.build_embed(), view=self)
+        try:
+            await interaction.message.edit(embed=self.build_embed(), view=self)
+        except discord.HTTPException:
+            pass
     
     @discord.ui.button(label="Next Floor", style=discord.ButtonStyle.success, emoji="▶️", custom_id="dng_next")
     async def next_floor_btn(self, interaction: discord.Interaction, button: Button):
