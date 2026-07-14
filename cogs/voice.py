@@ -6,6 +6,10 @@ Requires:
 
 import discord
 from discord.ext import commands
+import edge_tts
+import asyncio
+import os
+import uuid
 
 
 class Voice(commands.Cog, name="Voice"):
@@ -63,6 +67,55 @@ class Voice(commands.Cog, name="Voice"):
                 color=0x3498DB,
             )
         )
+
+    # ── Ztts ──────────────────────────────────────────────────────────────
+    @commands.command(name="tts", aliases=["speak"])
+    async def tts(self, ctx: commands.Context, *, text: str):
+        """Convert text to speech and play it in the voice channel."""
+        if not ctx.voice_client:
+            await ctx.send(
+                embed=discord.Embed(
+                    description="❌ I am not connected to a voice channel. Use `Zjoin` first.",
+                    color=0xFF4444,
+                )
+            )
+            return
+
+        # Limit text length to avoid abuse
+        if len(text) > 200:
+            await ctx.send("❌ Text is too long! (Max 200 characters)")
+            return
+
+        # Generate unique filename to prevent collisions if multiple run
+        filename = f"tts_{uuid.uuid4().hex}.mp3"
+
+        # Communicate we're generating
+        msg = await ctx.send("💬 Generating speech...")
+
+        try:
+            # Generate the TTS file (edge-tts is async)
+            communicate = edge_tts.Communicate(text, "en-US-AriaNeural")
+            await communicate.save(filename)
+            
+            # Clean up the file after it finishes playing
+            def cleanup(error):
+                try:
+                    if os.path.exists(filename):
+                        os.remove(filename)
+                except Exception as e:
+                    print(f"Failed to delete {filename}: {e}")
+            
+            # Stop existing playback logic again just to be safe
+            if ctx.voice_client.is_playing():
+                ctx.voice_client.stop()
+                
+            ctx.voice_client.play(discord.FFmpegPCMAudio(filename), after=cleanup)
+            await msg.edit(content=f"🗣️ Speaking: `{text}`")
+            
+        except Exception as e:
+            await msg.edit(content=f"❌ Error generating TTS: {e}")
+            if os.path.exists(filename):
+                os.remove(filename)
 
 
 async def setup(bot: commands.Bot):

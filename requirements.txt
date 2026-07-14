@@ -1,5 +1,7 @@
-discord.py==2.4.0
+discord.py[voice]==2.4.0
 audioop-lts==0.2.1
 Pillow>=10.0.0
 google-genai
 pymongo
+PyNaCl
+edge-tts

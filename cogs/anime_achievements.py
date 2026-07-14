@@ -44,7 +44,28 @@ ACHIEVEMENTS = {
     "transcendent": {"name": "💎 Transcendent", "desc": "Ascend a character to ★★★★★", "reward": 50000},
     
     "trader": {"name": "🤝 Trader", "desc": "Complete your first trade", "reward": 1000},
+    
+    "truth_teller": {"name": "🗣️ Truth Teller", "desc": "Complete a game of Truth or Dare", "reward": 1000},
+    "movie_expert": {"name": "🎬 Movie Expert", "desc": "Win Emoji Movie Guess", "reward": 2000},
+    "decisive": {"name": "⚡ Decisive", "desc": "Play This or That", "reward": 500},
 }
+
+
+async def check_general_achievements(user_id: int):
+    """Check general game achievements."""
+    uid = str(user_id)
+    ach_data = get_doc("anime_achievements", uid, lambda: {"unlocked": []})
+    unlocked = set(ach_data.get("unlocked", []))
+    newly_unlocked = []
+
+    # Currently we just trigger these based on game play events for simplicity
+    # Real logic would check stats, but for now we'll allow calling it directly to trigger a check
+    
+    # We would check stats here
+    
+    return newly_unlocked
+
+
 
 
 async def check_achievements(ctx: commands.Context | discord.Interaction, user_id: int):
@@ -157,6 +178,11 @@ class AnimeAchievements(commands.Cog, name="Anime Achievements"):
     async def check_achievements(self, ctx, user_id: int):
         """Instance method wrapper so other cogs can call ach_cog.check_achievements()."""
         await check_achievements(ctx, user_id)
+
+    async def check_general_achievements(self, user_id: int):
+        """Wrapper for general achievements."""
+        # Simple stub for new games to call
+        pass
 
     @commands.Cog.listener()
     async def on_command_completion(self, ctx: commands.Context):
