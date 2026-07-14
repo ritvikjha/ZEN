@@ -1180,6 +1180,15 @@ HELP_MULTIPLAYER = """
 
 **🔢 Number Guess** — `{p}guess [entry_fee]`
   • Guess the secret number 1–100. First correct wins!
+
+**🤫 Truth or Dare** — `{p}tod [mode]`
+  • Safe, funny, or chaotic truth or dare with friends
+
+**⚖️ This or That** — `{p}tot`
+  • Vote between two difficult choices and see what the majority thinks
+
+**🎬 Emoji Movie** — `{p}emojimovie`
+  • Guess the movie title from a sequence of emojis
 """
 
 
