@@ -4,3 +4,4 @@ google-genai
 pymongo
 PyNaCl
 edge-tts
+audioop-lts
