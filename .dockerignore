@@ -36,9 +36,12 @@ venv.bak/
 .env
 .env.local
 
-# Bot Data & Config (Avoid overwriting production data in Docker images)
+# Bot Config (Avoid baking secrets into images)
 config.json
-data/
+
+# Database files (JSON fallback data — use MongoDB in Docker instead)
+data/balances.json
+data/*.json
 *.db
 *.sqlite3
 
