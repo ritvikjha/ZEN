@@ -481,7 +481,7 @@ class EmgSetupView(View):
         await interaction.response.edit_message(embed=view.build_embed(), view=view)
         view.message = interaction.message
 
-    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.danger, emoji="🛑", row=2)
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.danger, emoji="🛑", row=3)
     async def cancel_btn(self, interaction: discord.Interaction, button: Button):
         if interaction.user.id != self.ctx.author.id:
             await interaction.response.send_message("Only the host can cancel!", ephemeral=True)
