@@ -5,6 +5,7 @@ Emoji Movie Guess Game Cog for ZEN Bot.
 import asyncio
 import random
 from dataclasses import dataclass, field
+from difflib import SequenceMatcher
 from typing import Optional
 import re
 
@@ -239,21 +240,43 @@ def normalize_string(s: str) -> str:
     return s
 
 
+def is_close_answer(guess: str, answers: list[str], threshold: float = 0.65) -> bool:
+    """Check if a guess is close to any correct answer using fuzzy matching."""
+    for ans in answers:
+        ratio = SequenceMatcher(None, guess, ans).ratio()
+        if ratio >= threshold:
+            return True
+        # Also check if one contains the other
+        if len(guess) >= 3 and (guess in ans or ans in guess):
+            return True
+    return False
+
+
 async def handle_emg_message(message: discord.Message) -> bool:
     """Process an emoji movie guess message in chat. Returns True if handled."""
     game = _active_emg_games.get(message.channel.id)
     if not game or not game.started or game.finished or game.round_winner:
         return False
-        
+
+    # Skip messages that look like bot commands
+    if message.content.strip().startswith(('Z', 'z', '!', '/', '.')):
+        return False
+    
+    # Auto-add anyone who guesses (so non-lobby players can play too)
     player = game.get_player(message.author.id)
     if not player:
-        return False
+        game.add_player(message.author)
+        player = game.get_player(message.author.id)
         
     puzzle = game.questions[game.current_round - 1]
     
     msg_clean = normalize_string(message.content)
+    if not msg_clean or len(msg_clean) < 2:
+        return False
+
     answers_clean = [normalize_string(a) for a in puzzle["answer"]]
     
+    # Correct answer
     if msg_clean in answers_clean:
         game.round_winner = message.author
         if game.round_task and not game.round_task.done():
@@ -266,7 +289,7 @@ async def handle_emg_message(message: discord.Message) -> bool:
             
         try:
             await message.add_reaction("✅")
-        except:
+        except discord.HTTPException:
             pass
             
         embed = success_embed(
@@ -286,10 +309,22 @@ async def handle_emg_message(message: discord.Message) -> bool:
             
         return True
     
+    # Close answer — react with 🤏 and hint
+    if is_close_answer(msg_clean, answers_clean):
+        try:
+            await message.add_reaction("🤏")
+            await message.channel.send(
+                f"🤏 **{message.author.display_name}**, you're close! Keep trying!",
+                delete_after=5
+            )
+        except discord.HTTPException:
+            pass
+        return True
+
     # Wrong answer — react with ❌
     try:
         await message.add_reaction("❌")
-    except:
+    except discord.HTTPException:
         pass
     return True
 
@@ -348,6 +383,7 @@ class EmgSetupView(View):
         self.ctx = ctx
         self.category = "hollywood"
         self.difficulty = "medium"
+        self.rounds = 5
 
     def build_embed(self) -> discord.Embed:
         cat_emoji = CATEGORY_EMOJIS.get(self.category, "🎬")
@@ -356,9 +392,10 @@ class EmgSetupView(View):
             title="🎬 Emoji Movie Guess — Setup",
             description=(
                 f"**Host:** {self.ctx.author.display_name}\n\n"
-                f"Pick a **category** and **difficulty** below, then hit **Confirm** to create the lobby!\n\n"
+                f"Pick a **category**, **difficulty**, and **rounds** below, then hit **Confirm** to create the lobby!\n\n"
                 f"**Selected Category:** {cat_emoji} {self.category.title()}\n"
-                f"**Selected Difficulty:** {diff_emoji} {self.difficulty.title()}"
+                f"**Selected Difficulty:** {diff_emoji} {self.difficulty.title()}\n"
+                f"**Rounds:** {self.rounds}"
             ),
             color=Colors.EMOJI_MOVIE,
             thumbnail_url=self.ctx.author.display_avatar.url,
@@ -399,7 +436,23 @@ class EmgSetupView(View):
         self.difficulty = select.values[0]
         await interaction.response.edit_message(embed=self.build_embed(), view=self)
 
-    @discord.ui.button(label="Confirm & Create Lobby", style=discord.ButtonStyle.success, emoji="✅", row=2)
+    @discord.ui.select(
+        placeholder="🔄 Choose number of rounds...",
+        options=[
+            discord.SelectOption(label="3 Rounds", value="3", emoji="3️⃣", description="A quick game"),
+            discord.SelectOption(label="5 Rounds", value="5", emoji="5️⃣", description="Standard game length"),
+            discord.SelectOption(label="10 Rounds", value="10", emoji="🔟", description="A long marathon game"),
+        ],
+        row=2,
+    )
+    async def rounds_select(self, interaction: discord.Interaction, select: discord.ui.Select):
+        if interaction.user.id != self.ctx.author.id:
+            await interaction.response.send_message("Only the host can change settings!", ephemeral=True)
+            return
+        self.rounds = int(select.values[0])
+        await interaction.response.edit_message(embed=self.build_embed(), view=self)
+
+    @discord.ui.button(label="Confirm & Create Lobby", style=discord.ButtonStyle.success, emoji="✅", row=3)
     async def confirm_btn(self, interaction: discord.Interaction, button: Button):
         if interaction.user.id != self.ctx.author.id:
             await interaction.response.send_message("Only the host can confirm!", ephemeral=True)
@@ -419,6 +472,7 @@ class EmgSetupView(View):
             channel=self.ctx.channel,
             category=self.category,
             difficulty=self.difficulty,
+            total_rounds=self.rounds
         )
         game.add_player(self.ctx.author)
         _active_emg_games[self.ctx.channel.id] = game
@@ -452,6 +506,13 @@ class EmojiMovieGuess(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        """Listen for emoji movie guesses in chat."""
+        if message.author.bot:
+            return
+        await handle_emg_message(message)
+
     @commands.command(name="emojimovie", aliases=["emg"])
     async def start_emg(self, ctx: commands.Context):
         """Start an Emoji Movie game. Pick category & difficulty from the menus!"""
@@ -466,4 +527,3 @@ class EmojiMovieGuess(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(EmojiMovieGuess(bot))
-
