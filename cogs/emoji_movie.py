@@ -248,9 +248,16 @@ async def _emg_next_round(game: EmgGame):
 
 async def delayed_next_round(game: EmgGame):
     """Wait 4 seconds then start the next round."""
-    await asyncio.sleep(4)
-    if not game.finished:
-        await _emg_next_round(game)
+    try:
+        await asyncio.sleep(4)
+        if not game.finished:
+            await _emg_next_round(game)
+        else:
+            print("Debug: delayed_next_round aborted because game.finished is True")
+    except Exception as e:
+        await game.channel.send(f"⚠️ Fatal error in delayed_next_round: `{e}`")
+        import traceback
+        traceback.print_exc()
 
 
 def normalize_string(s: str) -> str:
@@ -322,7 +329,15 @@ async def handle_emg_message(message: discord.Message) -> bool:
         # Add XP
         bot = message.client
         if hasattr(bot, "add_user_xp"):
-            bot.add_user_xp(message.author.id, 20)
+            try:
+                # If it's an async function, we need to await it
+                import inspect
+                if inspect.iscoroutinefunction(bot.add_user_xp) or inspect.iscoroutinefunction(getattr(bot, "add_user_xp", None)):
+                    await bot.add_user_xp(message.author.id, 20)
+                else:
+                    bot.add_user_xp(message.author.id, 20)
+            except Exception as e:
+                print(f"Failed to add XP: {e}")
             
         game.round_task = asyncio.create_task(delayed_next_round(game))
             
