@@ -62,12 +62,22 @@ class EmgGame:
 
     def on_start(self):
         pool = get_puzzles(category=self.category, difficulty=self.difficulty)
-        if not pool:
-            # Fallback if somehow empty
-            pool = get_puzzles()
+        if pool:
+            random.shuffle(pool)
+            self.questions = pool[:self.total_rounds]
+        else:
+            self.questions = []
             
-        random.shuffle(pool)
-        self.questions = pool[: min(self.total_rounds, len(pool))]
+        # Fill missing rounds from other categories if needed
+        if len(self.questions) < self.total_rounds:
+            all_puzzles = get_puzzles()
+            random.shuffle(all_puzzles)
+            for p in all_puzzles:
+                if p not in self.questions:
+                    self.questions.append(p)
+                if len(self.questions) == self.total_rounds:
+                    break
+                    
         self.total_rounds = len(self.questions)
 
 
@@ -204,32 +214,43 @@ async def _emg_round_timer(game: EmgGame, puzzle: dict):
 
 
 async def _emg_next_round(game: EmgGame):
-    if game.current_round >= game.total_rounds:
-        await _emg_end_game(game)
-        return
+    try:
+        if game.current_round >= game.total_rounds:
+            await _emg_end_game(game)
+            return
+            
+        game.current_round += 1
+        game.round_winner = None
         
-    game.current_round += 1
-    game.round_winner = None
-    
-    puzzle = game.questions[game.current_round - 1]
-    
-    embed = make_round_embed(
-        game_name="Emoji Movie Guess",
-        game_emoji="🎬",
-        round_num=game.current_round,
-        total_rounds=game.total_rounds,
-        content=f"**Guess the Movie!**\n\n# {puzzle['emoji']}",
-        color=Colors.EMOJI_MOVIE,
-        timer_seconds=30
-    )
-    
-    game.round_msg = await game.channel.send(embed=embed)
-    game.round_start_time = asyncio.get_event_loop().time()
-    
-    if game.round_task and not game.round_task.done():
-        game.round_task.cancel()
+        puzzle = game.questions[game.current_round - 1]
         
-    game.round_task = asyncio.create_task(_emg_round_timer(game, puzzle))
+        embed = make_round_embed(
+            game_name="Emoji Movie Guess",
+            game_emoji="🎬",
+            round_num=game.current_round,
+            total_rounds=game.total_rounds,
+            content=f"**Guess the Movie!**\n\n# {puzzle['emoji']}",
+            color=Colors.EMOJI_MOVIE,
+            timer_seconds=30
+        )
+        
+        game.round_msg = await game.channel.send(embed=embed)
+        game.round_start_time = asyncio.get_event_loop().time()
+        
+        if game.round_task and not game.round_task.done():
+            game.round_task.cancel()
+            
+        game.round_task = asyncio.create_task(_emg_round_timer(game, puzzle))
+    except Exception as e:
+        await game.channel.send(f"⚠️ An error occurred while starting the next round: `{e}`")
+        import traceback
+        traceback.print_exc()
+
+async def delayed_next_round(game: EmgGame):
+    """Wait 4 seconds then start the next round."""
+    await asyncio.sleep(4)
+    if not game.finished:
+        await _emg_next_round(game)
 
 
 def normalize_string(s: str) -> str:
@@ -303,9 +324,7 @@ async def handle_emg_message(message: discord.Message) -> bool:
         if hasattr(bot, "add_user_xp"):
             bot.add_user_xp(message.author.id, 20)
             
-        await asyncio.sleep(4)
-        if not game.finished:
-            await _emg_next_round(game)
+        asyncio.create_task(delayed_next_round(game))
             
         return True
     
