@@ -46,7 +46,7 @@ class Colors:
 
 
 BOT_FOOTER = "ZEN Bot • May the odds be in your favor"
-BOT_FOOTER_GAME = "ZEN Bot • Premium Gaming"
+BOT_FOOTER_GAME = "ZEN Bot"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

@@ -285,8 +285,13 @@ async def handle_emg_message(message: discord.Message) -> bool:
             await _emg_next_round(game)
             
         return True
-        
-    return False
+    
+    # Wrong answer — react with ❌
+    try:
+        await message.add_reaction("❌")
+    except:
+        pass
+    return True
 
 
 async def _emg_end_game(game: EmgGame):

@@ -32,6 +32,7 @@ from games.multiplayer import (
     try_lock_channel,
     unlock_channel,
 )
+from cogs.emoji_movie import handle_emg_message
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  CONFIGURATION
@@ -2266,6 +2267,10 @@ async def on_message(message: discord.Message):
                         return # Stop processing so it doesn't run as a command
 
     if await handle_multiplayer_message(message, config["prefix"]):
+        return
+
+    # Check for active Emoji Movie game answers
+    if await handle_emg_message(message):
         return
 
     # Continue processing commands normally
