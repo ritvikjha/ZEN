@@ -324,7 +324,7 @@ async def handle_emg_message(message: discord.Message) -> bool:
         if hasattr(bot, "add_user_xp"):
             bot.add_user_xp(message.author.id, 20)
             
-        asyncio.create_task(delayed_next_round(game))
+        game.round_task = asyncio.create_task(delayed_next_round(game))
             
         return True
     
