@@ -340,6 +340,112 @@ async def _emg_end_game(game: EmgGame):
     await game.channel.send(embed=embed)
 
 
+class EmgSetupView(View):
+    """Setup view with dropdowns to pick category and difficulty before starting the lobby."""
+
+    def __init__(self, ctx: commands.Context):
+        super().__init__(timeout=60)
+        self.ctx = ctx
+        self.category = "hollywood"
+        self.difficulty = "medium"
+
+    def build_embed(self) -> discord.Embed:
+        cat_emoji = CATEGORY_EMOJIS.get(self.category, "🎬")
+        diff_emoji = DIFFICULTY_EMOJIS.get(self.difficulty, "🟡")
+        return make_embed(
+            title="🎬 Emoji Movie Guess — Setup",
+            description=(
+                f"**Host:** {self.ctx.author.display_name}\n\n"
+                f"Pick a **category** and **difficulty** below, then hit **Confirm** to create the lobby!\n\n"
+                f"**Selected Category:** {cat_emoji} {self.category.title()}\n"
+                f"**Selected Difficulty:** {diff_emoji} {self.difficulty.title()}"
+            ),
+            color=Colors.EMOJI_MOVIE,
+            thumbnail_url=self.ctx.author.display_avatar.url,
+        )
+
+    @discord.ui.select(
+        placeholder="🎬 Choose a category...",
+        options=[
+            discord.SelectOption(label="Hollywood", value="hollywood", emoji="🎬", description="Classic Hollywood movies"),
+            discord.SelectOption(label="Bollywood", value="bollywood", emoji="🇮🇳", description="Popular Bollywood films"),
+            discord.SelectOption(label="Disney", value="disney", emoji="🏰", description="Disney animated classics"),
+            discord.SelectOption(label="Anime", value="anime", emoji="🎌", description="Iconic anime movies"),
+            discord.SelectOption(label="Marvel", value="marvel", emoji="🦸", description="Marvel superhero films"),
+            discord.SelectOption(label="Horror", value="horror", emoji="👻", description="Scary horror movies"),
+        ],
+        row=0,
+    )
+    async def category_select(self, interaction: discord.Interaction, select: discord.ui.Select):
+        if interaction.user.id != self.ctx.author.id:
+            await interaction.response.send_message("Only the host can change settings!", ephemeral=True)
+            return
+        self.category = select.values[0]
+        await interaction.response.edit_message(embed=self.build_embed(), view=self)
+
+    @discord.ui.select(
+        placeholder="📊 Choose a difficulty...",
+        options=[
+            discord.SelectOption(label="Easy", value="easy", emoji="🟢", description="Hints are easier, more time"),
+            discord.SelectOption(label="Medium", value="medium", emoji="🟡", description="Balanced challenge"),
+            discord.SelectOption(label="Hard", value="hard", emoji="🔴", description="Tough puzzles, more rewards"),
+        ],
+        row=1,
+    )
+    async def difficulty_select(self, interaction: discord.Interaction, select: discord.ui.Select):
+        if interaction.user.id != self.ctx.author.id:
+            await interaction.response.send_message("Only the host can change settings!", ephemeral=True)
+            return
+        self.difficulty = select.values[0]
+        await interaction.response.edit_message(embed=self.build_embed(), view=self)
+
+    @discord.ui.button(label="Confirm & Create Lobby", style=discord.ButtonStyle.success, emoji="✅", row=2)
+    async def confirm_btn(self, interaction: discord.Interaction, button: Button):
+        if interaction.user.id != self.ctx.author.id:
+            await interaction.response.send_message("Only the host can confirm!", ephemeral=True)
+            return
+
+        if not try_lock_channel(self.ctx.channel.id, "emg"):
+            game_name = channel_game_name(self.ctx.channel.id)
+            await interaction.response.send_message(
+                embed=error_embed("Channel Busy", f"A {game_name} game is already active here!"),
+                ephemeral=True,
+            )
+            return
+
+        self.stop()
+        game = EmgGame(
+            host=self.ctx.author,
+            channel=self.ctx.channel,
+            category=self.category,
+            difficulty=self.difficulty,
+        )
+        game.add_player(self.ctx.author)
+        _active_emg_games[self.ctx.channel.id] = game
+
+        view = EmgLobbyView(game)
+        await interaction.response.edit_message(embed=view.build_embed(), view=view)
+        view.message = interaction.message
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.danger, emoji="🛑", row=2)
+    async def cancel_btn(self, interaction: discord.Interaction, button: Button):
+        if interaction.user.id != self.ctx.author.id:
+            await interaction.response.send_message("Only the host can cancel!", ephemeral=True)
+            return
+        self.stop()
+        await interaction.response.edit_message(
+            embed=error_embed("Cancelled", "Game setup cancelled."), view=None
+        )
+
+    async def on_timeout(self):
+        try:
+            msg = self.ctx.message
+            if msg:
+                await msg.edit(embed=error_embed("Timed Out", "Game setup timed out."), view=None)
+        except:
+            pass
+
+
 class EmojiMovieGuess(commands.Cog):
     """🎬 Emoji Movie Guess game cog."""
     
@@ -347,37 +453,17 @@ class EmojiMovieGuess(commands.Cog):
         self.bot = bot
 
     @commands.command(name="emojimovie", aliases=["emg"])
-    async def start_emg(self, ctx: commands.Context, category: str = "hollywood", difficulty: str = "medium"):
-        """Start an Emoji Movie game.
-        Categories: hollywood, bollywood, disney, anime, marvel, horror
-        Difficulties: easy, medium, hard
-        """
-        category = category.lower()
-        difficulty = difficulty.lower()
-        
-        if category not in CATEGORIES:
-            cats = ", ".join(CATEGORIES)
-            await ctx.send(embed=error_embed("Invalid Category", f"Categories available: `{cats}`"))
-            return
-            
-        if difficulty not in DIFFICULTIES:
-            diffs = ", ".join(DIFFICULTIES)
-            await ctx.send(embed=error_embed("Invalid Difficulty", f"Difficulties available: `{diffs}`"))
-            return
-            
-        if not try_lock_channel(ctx.channel.id, "emg"):
+    async def start_emg(self, ctx: commands.Context):
+        """Start an Emoji Movie game. Pick category & difficulty from the menus!"""
+        if channel_game_name(ctx.channel.id):
             game_name = channel_game_name(ctx.channel.id)
             await ctx.send(embed=error_embed("Channel Busy", f"A {game_name} game is already active here!"))
             return
-            
-        game = EmgGame(host=ctx.author, channel=ctx.channel, category=category, difficulty=difficulty)
-        game.add_player(ctx.author)
-        _active_emg_games[ctx.channel.id] = game
-        
-        view = EmgLobbyView(game)
-        msg = await ctx.send(embed=view.build_embed(), view=view)
-        view.message = msg
+
+        view = EmgSetupView(ctx)
+        await ctx.send(embed=view.build_embed(), view=view)
 
 
 async def setup(bot):
     await bot.add_cog(EmojiMovieGuess(bot))
+
