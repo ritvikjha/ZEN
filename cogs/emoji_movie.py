@@ -281,7 +281,7 @@ def is_close_answer(guess: str, answers: list[str], threshold: float = 0.65) -> 
     return False
 
 
-async def handle_emg_message(message: discord.Message) -> bool:
+async def handle_emg_message(bot, message: discord.Message) -> bool:
     """Process an emoji movie guess message in chat. Returns True if handled."""
     game = _active_emg_games.get(message.channel.id)
     if not game or not game.started or game.finished or game.round_winner:
@@ -329,7 +329,6 @@ async def handle_emg_message(message: discord.Message) -> bool:
         await message.channel.send(embed=embed)
         
         # Add XP
-        bot = message.client
         if hasattr(bot, "add_user_xp"):
             try:
                 # If it's an async function, we need to await it
@@ -547,7 +546,7 @@ class EmojiMovieGuess(commands.Cog):
         """Listen for emoji movie guesses in chat."""
         if message.author.bot:
             return
-        await handle_emg_message(message)
+        await handle_emg_message(self.bot, message)
 
     @commands.command(name="emojimovie", aliases=["emg"])
     async def start_emg(self, ctx: commands.Context):
