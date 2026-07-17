@@ -444,6 +444,7 @@ class EmgSetupView(View):
             discord.SelectOption(label="Anime", value="anime", emoji="🎌", description="Iconic anime movies"),
             discord.SelectOption(label="Marvel", value="marvel", emoji="🦸", description="Marvel superhero films"),
             discord.SelectOption(label="Horror", value="horror", emoji="👻", description="Scary horror movies"),
+            discord.SelectOption(label="Series", value="series", emoji="📺", description="TV shows & web series"),
         ],
         row=0,
     )
