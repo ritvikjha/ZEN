@@ -237,7 +237,8 @@ async def _emg_next_round(game: EmgGame):
         game.round_msg = await game.channel.send(embed=embed)
         game.round_start_time = asyncio.get_event_loop().time()
         
-        if game.round_task and not game.round_task.done():
+        current = asyncio.current_task()
+        if game.round_task and not game.round_task.done() and game.round_task != current:
             game.round_task.cancel()
             
         game.round_task = asyncio.create_task(_emg_round_timer(game, puzzle))
@@ -287,7 +288,7 @@ async def handle_emg_message(message: discord.Message) -> bool:
         return False
 
     # Skip messages that look like bot commands
-    if message.content.strip().startswith(('Z', 'z', '!', '/', '.')):
+    if message.content.strip().startswith(('!', '/', '.')):
         return False
     
     # Auto-add anyone who guesses (so non-lobby players can play too)
@@ -307,7 +308,8 @@ async def handle_emg_message(message: discord.Message) -> bool:
     # Correct answer
     if msg_clean in answers_clean:
         game.round_winner = message.author
-        if game.round_task and not game.round_task.done():
+        current = asyncio.current_task()
+        if game.round_task and not game.round_task.done() and game.round_task != current:
             game.round_task.cancel()
             
         time_taken = asyncio.get_event_loop().time() - game.round_start_time
