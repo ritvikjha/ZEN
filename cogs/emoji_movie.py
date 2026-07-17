@@ -391,7 +391,6 @@ async def _emg_end_game(game: EmgGame):
     # Award winner
     if sorted_players and sorted_players[0].score > 0:
         winner = sorted_players[0]
-        from bot import starting_balance # We'll need a way to pass this
         
         add_balance(winner.user.id, coins_reward, 500) # using 500 as default starting balance
         
