@@ -12,10 +12,10 @@ INSTAGRAM_ENABLED = os.environ.get("INSTAGRAM_ENABLED", "true").lower() in ("tru
 
 # ── File & Download Settings ──────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TEMP_FOLDER = os.environ.get(
+TEMP_FOLDER = os.path.abspath(os.environ.get(
     "INSTAGRAM_TEMP_FOLDER",
     os.path.join(BASE_DIR, "data", "temp_instagram")
-)
+))
 
 # Discord's upload limit: 25 MB for regular servers
 MAX_FILE_SIZE = int(os.environ.get("INSTAGRAM_MAX_FILE_SIZE", 25_000_000))

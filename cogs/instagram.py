@@ -345,7 +345,7 @@ class Instagram(commands.Cog):
         5. Clean up temp files
         """
         start_time = time.time()
-        temp_dir = os.path.join(TEMP_FOLDER, job.job_id)
+        temp_dir = os.path.abspath(os.path.join(TEMP_FOLDER, job.job_id))
         os.makedirs(temp_dir, exist_ok=True)
 
         logger.info(
@@ -456,10 +456,14 @@ class Instagram(commands.Cog):
         
         Returns (video_file_path, metadata_dict) on success, None on failure.
         """
-        # Sanitised output template
+        # Ensure temporary directory exists
+        os.makedirs(temp_dir, exist_ok=True)
+
+        # Sanitised output template (do not run sanitize_filename over %(id)s.%(ext)s template variables)
+        safe_shortcode = sanitize_filename(job.shortcode)
         output_template = os.path.join(
             temp_dir,
-            sanitize_filename(f"{job.shortcode}_%(id)s.%(ext)s")
+            f"{safe_shortcode}_%(id)s.%(ext)s"
         )
 
         # Build yt-dlp command
@@ -470,20 +474,19 @@ class Instagram(commands.Cog):
             "--no-warnings",                    # Clean output
             "--restrict-filenames",             # Safe filenames
             "--write-info-json",                # Dump metadata JSON
-            "--merge-output-format", "mp4",     # Always output MP4
+            "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "-o", output_template,              # Output path
         ]
 
-        # Quality selection
+        # Quality selection: prefer combined audio+video streams so ffmpeg isn't required
         if best_quality:
-            # Best video+audio, prefer mp4
             cmd.extend([
-                "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
+                "-f", "best[vcodec!=none][acodec!=none]/best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best"
             ])
         else:
             # Lower quality for size constraints
             cmd.extend([
-                "-f", "worstvideo[ext=mp4]+bestaudio[ext=m4a]/worst[ext=mp4]/worst",
+                "-f", "worst[vcodec!=none][acodec!=none]/worst[ext=mp4]/worstvideo[ext=mp4]+bestaudio[ext=m4a]/worst",
                 "-S", "filesize:24M",           # Sort by filesize, prefer under 24MB
             ])
 
@@ -537,7 +540,7 @@ class Instagram(commands.Cog):
                         metadata = json.load(fp)
                 except (json.JSONDecodeError, OSError) as e:
                     logger.warning("Job %s: failed to read metadata: %s", job.job_id, e)
-            elif f.endswith((".mp4", ".webm", ".mkv")):
+            elif f.endswith((".mp4", ".webm", ".mkv")) and not f.endswith((".part", ".ytdl")) and not ".fdash-" in f:
                 video_path = full
 
         if not video_path:
