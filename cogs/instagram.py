@@ -591,7 +591,7 @@ class Instagram(commands.Cog):
 
         try:
             file = discord.File(video_path, filename=filename)
-            await job.message.channel.send(embed=embed, file=file)
+            await job.message.channel.send(file=file)
         except discord.HTTPException as e:
             logger.error("Job %s: upload failed: %s", job.job_id, e)
             await self._send_error(job)
