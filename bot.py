@@ -2723,7 +2723,7 @@ async def main():
             print(f"Warning starting web server: {e}")
 
     async with bot:
-        for ext in ["cogs.anime_collection", "cogs.anime_battle", "cogs.anime_enchant", "cogs.anime_achievements", "cogs.anime_inventory", "cogs.anime_trading", "cogs.anime_dungeon", "cogs.truth_or_dare", "cogs.this_or_that", "cogs.emoji_movie"]:
+        for ext in ["cogs.anime_collection", "cogs.anime_battle", "cogs.anime_enchant", "cogs.anime_achievements", "cogs.anime_inventory", "cogs.anime_trading", "cogs.anime_dungeon", "cogs.truth_or_dare", "cogs.this_or_that", "cogs.emoji_movie", "cogs.instagram"]:
             try:
                 await bot.load_extension(ext)
                 print(f"[+] Loaded extension: {ext}")
