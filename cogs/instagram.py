@@ -463,29 +463,29 @@ class Instagram(commands.Cog):
             sanitize_filename(f"{job.shortcode}_%(id)s.%(ext)s")
         )
 
-        # Build yt-dlp command
+        # Build yt-dlp command (optimized for speed)
         cmd_base = getattr(self, "_ytdlp_cmd_base", [sys.executable, "-m", "yt_dlp"])
         cmd = list(cmd_base) + [
             "--no-playlist",                    # Single video only
             "--no-check-certificates",          # Avoid SSL issues
             "--no-warnings",                    # Clean output
             "--restrict-filenames",             # Safe filenames
-            "--write-info-json",                # Dump metadata JSON
             "--merge-output-format", "mp4",     # Always output MP4
             "-o", output_template,              # Output path
         ]
 
-        # Quality selection
+        if SHOW_EMBED:
+            cmd.append("--write-info-json")
+
+        # Quality selection (prefer single pre-merged stream for max speed)
         if best_quality:
-            # Best video+audio, prefer mp4
             cmd.extend([
-                "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
+                "-f", "b[ext=mp4]/best[ext=mp4]/b/best"
             ])
         else:
-            # Lower quality for size constraints
             cmd.extend([
-                "-f", "worstvideo[ext=mp4]+bestaudio[ext=m4a]/worst[ext=mp4]/worst",
-                "-S", "filesize:24M",           # Sort by filesize, prefer under 24MB
+                "-f", "w[ext=mp4]/worst[ext=mp4]/w/worst",
+                "-S", "filesize:24M",
             ])
 
         # The URL goes last
