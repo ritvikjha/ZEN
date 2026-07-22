@@ -400,34 +400,13 @@ class Instagram(commands.Cog):
 
             if file_size > upload_limit:
                 logger.info(
-                    "Job %s: file too large (%.1f MB > %.1f MB limit), retrying at lower quality",
+                    "Job %s: file too large (%.1f MB > %.1f MB limit), sending direct link embed",
                     job.job_id, file_size / 1_000_000, upload_limit / 1_000_000
                 )
-                # Clean up the too-large file
-                os.remove(video_path)
-
-                # Re-download at reduced quality
-                result = await self._download_video(job, temp_dir, best_quality=False)
-
-                if result is None:
-                    await self._send_error(job)
-                    return
-
-                video_path, metadata = result
-                file_size = os.path.getsize(video_path)
-
-                if file_size > upload_limit:
-                    logger.warning(
-                        "Job %s: still too large at low quality (%.1f MB), aborting",
-                        job.job_id, file_size / 1_000_000
-                    )
-                    await self._send_error(
-                        job,
-                        "⚠️ This video is too large to upload to Discord "
-                        f"({file_size / 1_000_000:.1f} MB, limit is "
-                        f"{upload_limit / 1_000_000:.0f} MB)."
-                    )
-                    return
+                await self._send_large_video_embed(
+                    job, metadata, file_size / 1_000_000, upload_limit / 1_000_000
+                )
+                return
 
             # ── Upload to Discord ─────────────────────────────────────────
             upload_ok = await self._upload_video(job, video_path, metadata)
@@ -571,6 +550,51 @@ class Instagram(commands.Cog):
             return None
 
         return video_path, metadata
+
+    async def _send_large_video_embed(
+        self,
+        job: DownloadJob,
+        metadata: dict,
+        file_size_mb: float,
+        upload_limit_mb: float,
+    ):
+        """Send an embed with direct video links when the file exceeds Discord upload limit."""
+        caption = metadata.get("description") or metadata.get("title") or ""
+        uploader = metadata.get("uploader") or metadata.get("channel") or "Unknown"
+        duration = metadata.get("duration")
+        direct_url = metadata.get("url")
+
+        embed = discord.Embed(color=EMBED_COLOR)
+        embed.title = "🎥 Instagram Video"
+
+        desc_parts = []
+        desc_parts.append(f"**Requested by** {job.message.author.mention}\n")
+        desc_parts.append(
+            f"⚠️ *File size (**{file_size_mb:.1f} MB**) exceeds Discord server upload limit ({upload_limit_mb:.0f} MB).*\n"
+        )
+
+        if caption:
+            truncated = truncate_caption(caption)
+            desc_parts.append(f"📝 {truncated}\n")
+
+        if uploader and uploader != "Unknown":
+            desc_parts.append(f"👤 **{uploader}**")
+
+        if duration:
+            mins, secs = divmod(int(duration), 60)
+            desc_parts.append(f"⏱️ {mins}:{secs:02d}")
+
+        desc_parts.append(f"\n🔗 [Original Post]({job.url})")
+        if direct_url:
+            desc_parts.append(f"📥 [Watch / Download Video]({direct_url})")
+
+        embed.description = "\n".join(desc_parts)
+        embed.set_footer(text="ZEN Bot • Instagram Embed")
+
+        try:
+            await job.message.channel.send(embed=embed)
+        except discord.HTTPException as e:
+            logger.error("Job %s: failed to send large video embed: %s", job.job_id, e)
 
     # ═══════════════════════════════════════════════════════════════════════
     #  DISCORD UPLOAD
