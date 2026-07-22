@@ -41,7 +41,6 @@ from utils.instagram_config import (
     MAX_WORKERS,
     USER_COOLDOWN,
     GUILD_COOLDOWN,
-    SHOW_EMBED,
     LOG_LEVEL,
 )
 
@@ -280,16 +279,16 @@ class Instagram(commands.Cog):
         url_matches = INSTAGRAM_URL_PATTERN.finditer(message.content)
         queued = 0
         for match in url_matches:
+            full_url = match.group(0)
             shortcode = match.group(1)
-            clean_url = f"https://www.instagram.com/reel/{shortcode}/"
 
             # Strict re-validation
-            if not validate_instagram_url(clean_url):
+            if not validate_instagram_url(full_url):
                 continue
 
             job = DownloadJob(
                 message=message,
-                url=clean_url,
+                url=full_url,
                 shortcode=shortcode,
             )
             await self._queue.put(job)
@@ -463,30 +462,29 @@ class Instagram(commands.Cog):
             sanitize_filename(f"{job.shortcode}_%(id)s.%(ext)s")
         )
 
-        # Build yt-dlp command (optimized for speed & reliability)
+        # Build yt-dlp command
         cmd_base = getattr(self, "_ytdlp_cmd_base", [sys.executable, "-m", "yt_dlp"])
         cmd = list(cmd_base) + [
             "--no-playlist",                    # Single video only
             "--no-check-certificates",          # Avoid SSL issues
             "--no-warnings",                    # Clean output
             "--restrict-filenames",             # Safe filenames
-            "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "--write-info-json",                # Dump metadata JSON
             "--merge-output-format", "mp4",     # Always output MP4
             "-o", output_template,              # Output path
         ]
 
-        if SHOW_EMBED:
-            cmd.append("--write-info-json")
-
-        # Quality selection (valid yt-dlp format specifications)
+        # Quality selection
         if best_quality:
+            # Best video+audio, prefer mp4
             cmd.extend([
-                "-f", "best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best"
+                "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
             ])
         else:
+            # Lower quality for size constraints
             cmd.extend([
-                "-f", "worst[ext=mp4]/worstvideo[ext=mp4]+worstaudio[ext=m4a]/worst",
-                "-S", "filesize:24M",
+                "-f", "worstvideo[ext=mp4]+bestaudio[ext=m4a]/worst[ext=mp4]/worst",
+                "-S", "filesize:24M",           # Sort by filesize, prefer under 24MB
             ])
 
         # The URL goes last
@@ -593,10 +591,7 @@ class Instagram(commands.Cog):
 
         try:
             file = discord.File(video_path, filename=filename)
-            if SHOW_EMBED:
-                await job.message.channel.send(embed=embed, file=file)
-            else:
-                await job.message.channel.send(file=file)
+            await job.message.channel.send(embed=embed, file=file)
         except discord.HTTPException as e:
             logger.error("Job %s: upload failed: %s", job.job_id, e)
             await self._send_error(job)

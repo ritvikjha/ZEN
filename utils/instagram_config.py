@@ -30,9 +30,5 @@ MAX_WORKERS = int(os.environ.get("INSTAGRAM_MAX_WORKERS", 3))
 USER_COOLDOWN = int(os.environ.get("INSTAGRAM_USER_COOLDOWN", 10))
 GUILD_COOLDOWN = int(os.environ.get("INSTAGRAM_GUILD_COOLDOWN", 5))
 
-# ── Display Options ───────────────────────────────────────────────────────────
-# Send text embed alongside video (false = video only)
-SHOW_EMBED = os.environ.get("INSTAGRAM_SHOW_EMBED", "false").lower() in ("true", "1", "yes")
-
 # ── Logging ───────────────────────────────────────────────────────────────────
 LOG_LEVEL = os.environ.get("INSTAGRAM_LOG_LEVEL", "INFO").upper()
