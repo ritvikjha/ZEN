@@ -41,6 +41,7 @@ from utils.instagram_config import (
     MAX_WORKERS,
     USER_COOLDOWN,
     GUILD_COOLDOWN,
+    SHOW_EMBED,
     LOG_LEVEL,
 )
 
@@ -591,7 +592,10 @@ class Instagram(commands.Cog):
 
         try:
             file = discord.File(video_path, filename=filename)
-            await job.message.channel.send(embed=embed, file=file)
+            if SHOW_EMBED:
+                await job.message.channel.send(embed=embed, file=file)
+            else:
+                await job.message.channel.send(file=file)
         except discord.HTTPException as e:
             logger.error("Job %s: upload failed: %s", job.job_id, e)
             await self._send_error(job)
