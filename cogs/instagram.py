@@ -280,16 +280,16 @@ class Instagram(commands.Cog):
         url_matches = INSTAGRAM_URL_PATTERN.finditer(message.content)
         queued = 0
         for match in url_matches:
-            full_url = match.group(0)
             shortcode = match.group(1)
+            clean_url = f"https://www.instagram.com/reel/{shortcode}/"
 
             # Strict re-validation
-            if not validate_instagram_url(full_url):
+            if not validate_instagram_url(clean_url):
                 continue
 
             job = DownloadJob(
                 message=message,
-                url=full_url,
+                url=clean_url,
                 shortcode=shortcode,
             )
             await self._queue.put(job)
@@ -463,13 +463,14 @@ class Instagram(commands.Cog):
             sanitize_filename(f"{job.shortcode}_%(id)s.%(ext)s")
         )
 
-        # Build yt-dlp command (optimized for speed)
+        # Build yt-dlp command (optimized for speed & reliability)
         cmd_base = getattr(self, "_ytdlp_cmd_base", [sys.executable, "-m", "yt_dlp"])
         cmd = list(cmd_base) + [
             "--no-playlist",                    # Single video only
             "--no-check-certificates",          # Avoid SSL issues
             "--no-warnings",                    # Clean output
             "--restrict-filenames",             # Safe filenames
+            "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "--merge-output-format", "mp4",     # Always output MP4
             "-o", output_template,              # Output path
         ]
@@ -477,14 +478,14 @@ class Instagram(commands.Cog):
         if SHOW_EMBED:
             cmd.append("--write-info-json")
 
-        # Quality selection (prefer single pre-merged stream for max speed)
+        # Quality selection (valid yt-dlp format specifications)
         if best_quality:
             cmd.extend([
-                "-f", "b[ext=mp4]/best[ext=mp4]/b/best"
+                "-f", "best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best"
             ])
         else:
             cmd.extend([
-                "-f", "w[ext=mp4]/worst[ext=mp4]/w/worst",
+                "-f", "worst[ext=mp4]/worstvideo[ext=mp4]+worstaudio[ext=m4a]/worst",
                 "-S", "filesize:24M",
             ])
 
