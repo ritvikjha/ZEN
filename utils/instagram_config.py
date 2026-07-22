@@ -23,6 +23,9 @@ MAX_FILE_SIZE = int(os.environ.get("INSTAGRAM_MAX_FILE_SIZE", 25_000_000))
 # Download timeout in seconds
 TIMEOUT = int(os.environ.get("INSTAGRAM_TIMEOUT", 30))
 
+# Optional cookies file path for private / login-required reels
+COOKIES_FILE = os.environ.get("INSTAGRAM_COOKIES_FILE", os.path.join(BASE_DIR, "cookies.txt"))
+
 # ── Concurrency ───────────────────────────────────────────────────────────────
 MAX_WORKERS = int(os.environ.get("INSTAGRAM_MAX_WORKERS", 3))
 

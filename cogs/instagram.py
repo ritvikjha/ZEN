@@ -42,6 +42,7 @@ from utils.instagram_config import (
     USER_COOLDOWN,
     GUILD_COOLDOWN,
     LOG_LEVEL,
+    COOKIES_FILE,
 )
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -477,6 +478,9 @@ class Instagram(commands.Cog):
             "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "-o", output_template,              # Output path
         ]
+
+        if os.path.exists(COOKIES_FILE):
+            cmd.extend(["--cookies", COOKIES_FILE])
 
         # Quality selection: prefer combined audio+video streams so ffmpeg isn't required
         if best_quality:
