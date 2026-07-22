@@ -364,11 +364,17 @@ class Instagram(commands.Cog):
             # ── Download with retry ───────────────────────────────────────
             result = await self._download_video(job, temp_dir, best_quality=True)
 
-            # Retry once on failure
+            # Retry once on failure using canonical post URL format
             if result is None:
-                logger.info("Job %s: first attempt failed, retrying...", job.job_id)
+                logger.info("Job %s: first attempt failed, retrying with canonical post URL...", job.job_id)
                 await asyncio.sleep(1)
-                result = await self._download_video(job, temp_dir, best_quality=True)
+                fallback_job = DownloadJob(
+                    message=job.message,
+                    url=f"https://www.instagram.com/p/{job.shortcode}/",
+                    shortcode=job.shortcode,
+                    job_id=job.job_id,
+                )
+                result = await self._download_video(fallback_job, temp_dir, best_quality=True)
 
             if result is None:
                 await self._send_error(job)
@@ -475,7 +481,10 @@ class Instagram(commands.Cog):
             "--no-warnings",                    # Clean output
             "--restrict-filenames",             # Safe filenames
             "--write-info-json",                # Dump metadata JSON
+            "--geo-bypass",                     # Bypass geo-restrictions
             "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "--add-header", "Referer:https://www.instagram.com/",
+            "--add-header", "Accept-Language:en-US,en;q=0.9",
             "-o", output_template,              # Output path
         ]
 
