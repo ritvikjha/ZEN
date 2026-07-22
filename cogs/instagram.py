@@ -459,38 +459,48 @@ class Instagram(commands.Cog):
         best_quality: bool = True,
     ) -> Optional[tuple[str, dict]]:
         """
-        Download an Instagram video using yt-dlp as an async subprocess.
+        Download an Instagram video using yt-dlp Python library.
         
         Returns (video_file_path, metadata_dict) on success, None on failure.
         """
         # Ensure temporary directory exists
         os.makedirs(temp_dir, exist_ok=True)
 
-        # Sanitised output template (do not run sanitize_filename over %(id)s.%(ext)s template variables)
+        # Sanitised output template
         safe_shortcode = sanitize_filename(job.shortcode)
         output_template = os.path.join(
             temp_dir,
             f"{safe_shortcode}_%(id)s.%(ext)s"
         )
 
-        # Build yt-dlp command
-        cmd_base = getattr(self, "_ytdlp_cmd_base", [sys.executable, "-m", "yt_dlp"])
-        cmd = list(cmd_base) + [
-            "--no-playlist",                    # Single video only
-            "--no-check-certificates",          # Avoid SSL issues
-            "--no-warnings",                    # Clean output
-            "--restrict-filenames",             # Safe filenames
-            "--write-info-json",                # Dump metadata JSON
-            "--geo-bypass",                     # Bypass geo-restrictions
-            "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "--add-header", "Referer:https://www.instagram.com/",
-            "--add-header", "Accept-Language:en-US,en;q=0.9",
-            "-o", output_template,              # Output path
-        ]
+        # Quality format selection
+        if best_quality:
+            format_sel = "best[vcodec!=none][acodec!=none]/best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best"
+        else:
+            format_sel = "worst[vcodec!=none][acodec!=none]/worst[ext=mp4]/worstvideo[ext=mp4]+bestaudio[ext=m4a]/worst"
 
-        # Inject cookies for authentication (required on cloud hosts)
+        # yt-dlp options dict
+        ydl_opts = {
+            "outtmpl": output_template,
+            "format": format_sel,
+            "noplaylist": True,
+            "no_check_certificates": True,
+            "restrictfilenames": True,
+            "writeinfojson": True,
+            "geo_bypass": True,
+            "socket_timeout": 30,
+            "quiet": True,
+            "no_warnings": True,
+            "http_headers": {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Referer": "https://www.instagram.com/",
+                "Accept-Language": "en-US,en;q=0.9",
+            },
+        }
+
+        # Inject cookies for authentication (critical on cloud hosts like Render)
         if os.path.exists(COOKIES_FILE):
-            cmd.extend(["--cookies", COOKIES_FILE])
+            ydl_opts["cookiefile"] = COOKIES_FILE
             logger.info("Job %s: Using cookies from %s", job.job_id, COOKIES_FILE)
         else:
             logger.warning(
@@ -499,54 +509,29 @@ class Instagram(commands.Cog):
                 job.job_id, COOKIES_FILE
             )
 
-        # Quality selection: prefer combined audio+video streams so ffmpeg isn't required
-        if best_quality:
-            cmd.extend([
-                "-f", "best[vcodec!=none][acodec!=none]/best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best"
-            ])
-        else:
-            # Lower quality for size constraints
-            cmd.extend([
-                "-f", "worst[vcodec!=none][acodec!=none]/worst[ext=mp4]/worstvideo[ext=mp4]+bestaudio[ext=m4a]/worst",
-                "-S", "filesize:24M",           # Sort by filesize, prefer under 24MB
-            ])
-
-        # The URL goes last
-        cmd.append(job.url)
-
-        logger.info("Job %s: running yt-dlp command: %s", job.job_id, " ".join(cmd))
+        logger.info("Job %s: downloading %s via yt-dlp library", job.job_id, job.url)
 
         try:
-            proc = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                cwd=temp_dir,
+            # Run yt-dlp in a thread to avoid blocking the event loop
+            import yt_dlp
+
+            def _do_download():
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    return ydl.extract_info(job.url, download=True)
+
+            info = await asyncio.wait_for(
+                asyncio.get_event_loop().run_in_executor(None, _do_download),
+                timeout=TIMEOUT,
             )
 
-            stdout, stderr = await asyncio.wait_for(
-                proc.communicate(), timeout=TIMEOUT
-            )
-
-            if proc.returncode != 0:
-                stderr_text = stderr.decode(errors="replace")[:1000]
-                logger.error(
-                    "Job %s: yt-dlp exited with code %d.\nSTDERR: %s",
-                    job.job_id, proc.returncode, stderr_text
-                )
-                return None
+            if info:
+                logger.info("Job %s: yt-dlp download succeeded, title=%s", job.job_id, info.get("title", "?"))
 
         except asyncio.TimeoutError:
             logger.warning("Job %s: yt-dlp timed out after %ds", job.job_id, TIMEOUT)
-            # Kill the process
-            try:
-                proc.kill()
-                await proc.wait()
-            except (ProcessLookupError, OSError):
-                pass
             return None
-        except (OSError, FileNotFoundError) as e:
-            logger.error("Job %s: failed to run yt-dlp: %s", job.job_id, e)
+        except Exception as e:
+            logger.error("Job %s: yt-dlp failed: %s", job.job_id, e)
             return None
 
         # ── Find the downloaded video file ────────────────────────────────
@@ -561,8 +546,12 @@ class Instagram(commands.Cog):
                         metadata = json.load(fp)
                 except (json.JSONDecodeError, OSError) as e:
                     logger.warning("Job %s: failed to read metadata: %s", job.job_id, e)
-            elif f.endswith((".mp4", ".webm", ".mkv")) and not f.endswith((".part", ".ytdl")) and not ".fdash-" in f:
+            elif f.endswith((".mp4", ".webm", ".mkv")) and not f.endswith((".part", ".ytdl")) and ".fdash-" not in f:
                 video_path = full
+
+        # If we got info from yt-dlp but no metadata file, use the info dict
+        if not metadata and info:
+            metadata = info
 
         if not video_path:
             logger.warning("Job %s: no video file found in %s", job.job_id, temp_dir)
