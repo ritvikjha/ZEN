@@ -488,8 +488,16 @@ class Instagram(commands.Cog):
             "-o", output_template,              # Output path
         ]
 
+        # Inject cookies for authentication (required on cloud hosts)
         if os.path.exists(COOKIES_FILE):
             cmd.extend(["--cookies", COOKIES_FILE])
+            logger.info("Job %s: Using cookies from %s", job.job_id, COOKIES_FILE)
+        else:
+            logger.warning(
+                "Job %s: No cookies file at %s — Instagram may block this request. "
+                "Set INSTAGRAM_COOKIES_BASE64 env var.",
+                job.job_id, COOKIES_FILE
+            )
 
         # Quality selection: prefer combined audio+video streams so ffmpeg isn't required
         if best_quality:
@@ -506,7 +514,7 @@ class Instagram(commands.Cog):
         # The URL goes last
         cmd.append(job.url)
 
-        logger.debug("Job %s: running command: %s", job.job_id, " ".join(cmd))
+        logger.info("Job %s: running yt-dlp command: %s", job.job_id, " ".join(cmd))
 
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -521,9 +529,9 @@ class Instagram(commands.Cog):
             )
 
             if proc.returncode != 0:
-                stderr_text = stderr.decode(errors="replace")[:500]
-                logger.warning(
-                    "Job %s: yt-dlp exited with code %d: %s",
+                stderr_text = stderr.decode(errors="replace")[:1000]
+                logger.error(
+                    "Job %s: yt-dlp exited with code %d.\nSTDERR: %s",
                     job.job_id, proc.returncode, stderr_text
                 )
                 return None
