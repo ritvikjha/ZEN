@@ -388,13 +388,20 @@ class Instagram(commands.Cog):
 
             video_path, metadata = result
 
-            # ── Check file size ───────────────────────────────────────────
+            # ── Check file size against guild's actual limit ──────────────
             file_size = os.path.getsize(video_path)
+            guild = job.message.guild
+            # Use Discord's dynamic limit (accounts for boost level)
+            upload_limit = guild.filesize_limit if guild else MAX_FILE_SIZE
+            logger.info(
+                "Job %s: file=%.1f MB, guild upload limit=%.1f MB",
+                job.job_id, file_size / 1_000_000, upload_limit / 1_000_000
+            )
 
-            if file_size > MAX_FILE_SIZE:
+            if file_size > upload_limit:
                 logger.info(
-                    "Job %s: file too large (%.1f MB), retrying at lower quality",
-                    job.job_id, file_size / 1_000_000
+                    "Job %s: file too large (%.1f MB > %.1f MB limit), retrying at lower quality",
+                    job.job_id, file_size / 1_000_000, upload_limit / 1_000_000
                 )
                 # Clean up the too-large file
                 os.remove(video_path)
@@ -409,7 +416,7 @@ class Instagram(commands.Cog):
                 video_path, metadata = result
                 file_size = os.path.getsize(video_path)
 
-                if file_size > MAX_FILE_SIZE:
+                if file_size > upload_limit:
                     logger.warning(
                         "Job %s: still too large at low quality (%.1f MB), aborting",
                         job.job_id, file_size / 1_000_000
@@ -418,22 +425,28 @@ class Instagram(commands.Cog):
                         job,
                         "⚠️ This video is too large to upload to Discord "
                         f"({file_size / 1_000_000:.1f} MB, limit is "
-                        f"{MAX_FILE_SIZE / 1_000_000:.0f} MB)."
+                        f"{upload_limit / 1_000_000:.0f} MB)."
                     )
                     return
 
             # ── Upload to Discord ─────────────────────────────────────────
-            await self._upload_video(job, video_path, metadata)
+            upload_ok = await self._upload_video(job, video_path, metadata)
 
             elapsed = time.time() - start_time
-            logger.info(
-                "Job %s SUCCESS | shortcode=%s | user=%s | guild=%s | "
-                "channel=%s | size=%.1f MB | time=%.1fs",
-                job.job_id, job.shortcode, job.message.author.id,
-                job.message.guild.id if job.message.guild else "DM",
-                job.message.channel.id,
-                file_size / 1_000_000, elapsed
-            )
+            if upload_ok:
+                logger.info(
+                    "Job %s SUCCESS | shortcode=%s | user=%s | guild=%s | "
+                    "channel=%s | size=%.1f MB | time=%.1fs",
+                    job.job_id, job.shortcode, job.message.author.id,
+                    job.message.guild.id if job.message.guild else "DM",
+                    job.message.channel.id,
+                    file_size / 1_000_000, elapsed
+                )
+            else:
+                logger.error(
+                    "Job %s UPLOAD_FAILED | shortcode=%s | size=%.1f MB | time=%.1fs",
+                    job.job_id, job.shortcode, file_size / 1_000_000, elapsed
+                )
 
         finally:
             # ── Guaranteed cleanup ────────────────────────────────────────
@@ -568,8 +581,8 @@ class Instagram(commands.Cog):
         job: DownloadJob,
         video_path: str,
         metadata: dict,
-    ):
-        """Build an embed and upload the video file to the channel."""
+    ) -> bool:
+        """Build an embed and upload the video file to the channel. Returns True on success."""
         # ── Extract metadata ──────────────────────────────────────────────
         caption = metadata.get("description") or metadata.get("title") or ""
         uploader = metadata.get("uploader") or metadata.get("channel") or "Unknown"
@@ -605,9 +618,11 @@ class Instagram(commands.Cog):
         try:
             file = discord.File(video_path, filename=filename)
             await job.message.channel.send(file=file)
+            return True
         except discord.HTTPException as e:
             logger.error("Job %s: upload failed: %s", job.job_id, e)
             await self._send_error(job)
+            return False
 
     # ═══════════════════════════════════════════════════════════════════════
     #  ERROR REPLY
