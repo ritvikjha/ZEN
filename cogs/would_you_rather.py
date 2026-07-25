@@ -328,18 +328,19 @@ class WYRView(View):
         super().__init__(timeout=duration)
         self.option_a = option_a
         self.option_b = option_b
-        self.votes_a: set[int] = set()  # User IDs who voted A
-        self.votes_b: set[int] = set()  # User IDs who voted B
+        self.votes_a: dict[int, str] = {}  # user_id → display_name
+        self.votes_b: dict[int, str] = {}  # user_id → display_name
         self.message: Optional[discord.Message] = None
         self.finished = asyncio.Event()
 
     @discord.ui.button(label="Option A", style=discord.ButtonStyle.blurple, emoji="🅰️", custom_id="wyr_a")
     async def vote_a(self, interaction: discord.Interaction, button: Button):
         user_id = interaction.user.id
+        name = interaction.user.display_name
 
         # Remove vote from B if switching
-        self.votes_b.discard(user_id)
-        self.votes_a.add(user_id)
+        self.votes_b.pop(user_id, None)
+        self.votes_a[user_id] = name
 
         await interaction.response.send_message(
             f"You voted for **Option A!** 🅰️", ephemeral=True
@@ -348,10 +349,11 @@ class WYRView(View):
     @discord.ui.button(label="Option B", style=discord.ButtonStyle.red, emoji="🅱️", custom_id="wyr_b")
     async def vote_b(self, interaction: discord.Interaction, button: Button):
         user_id = interaction.user.id
+        name = interaction.user.display_name
 
         # Remove vote from A if switching
-        self.votes_a.discard(user_id)
-        self.votes_b.add(user_id)
+        self.votes_a.pop(user_id, None)
+        self.votes_b[user_id] = name
 
         await interaction.response.send_message(
             f"You voted for **Option B!** 🅱️", ephemeral=True
@@ -372,14 +374,16 @@ class WYRView(View):
                 pass
 
     def build_results_embed(self, category: str = "random") -> discord.Embed:
-        """Generate the results embed with vote counts and percentage bars."""
-        total = len(self.votes_a) + len(self.votes_b)
+        """Generate the results embed with vote counts, bars, and voter names."""
+        count_a = len(self.votes_a)
+        count_b = len(self.votes_b)
+        total = count_a + count_b
 
         if total == 0:
             pct_a, pct_b = 50.0, 50.0
         else:
-            pct_a = (len(self.votes_a) / total) * 100
-            pct_b = (len(self.votes_b) / total) * 100
+            pct_a = (count_a / total) * 100
+            pct_b = (count_b / total) * 100
 
         # Build visual progress bars
         bar_length = 16
@@ -389,12 +393,22 @@ class WYRView(View):
         bar_a = "█" * filled_a + "░" * (bar_length - filled_a)
         bar_b = "█" * filled_b + "░" * (bar_length - filled_b)
 
+        # Voter name lists
+        names_a = ", ".join(self.votes_a.values()) if self.votes_a else "*No one*"
+        names_b = ", ".join(self.votes_b.values()) if self.votes_b else "*No one*"
+
+        # Truncate long voter lists
+        if len(names_a) > 200:
+            names_a = names_a[:200] + "…"
+        if len(names_b) > 200:
+            names_b = names_b[:200] + "…"
+
         # Winner indicator
-        if len(self.votes_a) > len(self.votes_b):
+        if count_a > count_b:
             winner_text = "🅰️ **Option A wins!**"
             indicator_a = " 👑"
             indicator_b = ""
-        elif len(self.votes_b) > len(self.votes_a):
+        elif count_b > count_a:
             winner_text = "🅱️ **Option B wins!**"
             indicator_a = ""
             indicator_b = " 👑"
@@ -414,13 +428,19 @@ class WYRView(View):
 
         embed.add_field(
             name=f"🅰️ {self.option_a}{indicator_a}",
-            value=f"`{bar_a}` **{pct_a:.0f}%** ({len(self.votes_a)} vote{'s' if len(self.votes_a) != 1 else ''})",
+            value=(
+                f"`{bar_a}` **{pct_a:.0f}%** ({count_a} vote{'s' if count_a != 1 else ''})\n"
+                f"👥 {names_a}"
+            ),
             inline=False,
         )
 
         embed.add_field(
             name=f"🅱️ {self.option_b}{indicator_b}",
-            value=f"`{bar_b}` **{pct_b:.0f}%** ({len(self.votes_b)} vote{'s' if len(self.votes_b) != 1 else ''})",
+            value=(
+                f"`{bar_b}` **{pct_b:.0f}%** ({count_b} vote{'s' if count_b != 1 else ''})\n"
+                f"👥 {names_b}"
+            ),
             inline=False,
         )
 
