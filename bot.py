@@ -450,11 +450,15 @@ def add_user_role(user_id: int, role_name: str) -> None:
 intents = discord.Intents.default()
 intents.message_content = True
 
+prefix_setting = config.get("prefix", "Z")
+prefixes = list({prefix_setting, prefix_setting.lower(), prefix_setting.upper(), "!", "z!", "Z!"})
+
 bot = commands.Bot(
-    command_prefix=config["prefix"],
+    command_prefix=commands.when_mentioned_or(*prefixes),
     intents=intents,
-    owner_id=config["owner_id"],
+    owner_id=config.get("owner_id", 0),
     help_command=None,
+    case_insensitive=True,
 )
 bot.app_config = config
 STARTING = config.get("starting_balance", 5000)
