@@ -10,37 +10,13 @@ import urllib.request
 import urllib.error
 
 series_data = {
-    "Naruto": ["Naruto Uzumaki", "Sasuke Uchiha", "Sakura Haruno", "Kakashi Hatake", "Itachi Uchiha", "Hinata Hyuga", "Jiraiya"],
-    "Dragon Ball": ["Goku", "Vegeta", "Gohan", "Piccolo", "Frieza", "Cell", "Trunks"],
-    "One Piece": ["Monkey D. Luffy", "Roronoa Zoro", "Nami", "Sanji", "Usopp", "Tony Tony Chopper", "Nico Robin"],
-    "Demon Slayer": ["Tanjiro Kamado", "Nezuko Kamado", "Zenitsu Agatsuma", "Inosuke Hashibira", "Kyojuro Rengoku", "Giyu Tomioka", "Shinobu Kocho"],
-    "Attack on Titan": ["Eren Yeager", "Mikasa Ackerman", "Armin Arlert", "Levi Ackerman", "Erwin Smith", "Zeke Yeager", "Hange Zoe"],
-    "Jujutsu Kaisen": ["Yuji Itadori", "Megumi Fushiguro", "Nobara Kugisaki", "Satoru Gojo", "Sukuna", "Maki Zenin", "Kento Nanami"],
-    "My Hero Academia": ["Izuku Midoriya", "Katsuki Bakugo", "Shoto Todoroki", "Ochaco Uraraka", "All Might", "Tomura Shigaraki", "Endeavor"],
-    "Death Note": ["Light Yagami", "L", "Ryuk", "Misa Amane", "Near", "Mello", "Rem"],
-    "Fullmetal Alchemist": ["Edward Elric", "Alphonse Elric", "Roy Mustang", "Winry Rockbell", "Scar", "Envy", "Greed"],
-    "Bleach": ["Ichigo Kurosaki", "Rukia Kuchiki", "Orihime Inoue", "Uryu Ishida", "Sosuke Aizen", "Byakuya Kuchiki", "Renji Abarai"],
-    "Hunter x Hunter": ["Gon Freecss", "Killua Zoldyck", "Kurapika", "Leorio", "Hisoka Morow", "Chrollo Lucilfer", "Meruem"],
-    "One Punch Man": ["Saitama", "Genos", "Garou", "Tatsumaki", "Silver Fang", "Mumen Rider", "Speed-o-Sound Sonic"],
-    "Sword Art Online": ["Kirito", "Asuna", "Leafa", "Sinon", "Alice", "Eugeo", "Klein"],
-    "Tokyo Ghoul": ["Ken Kaneki", "Touka Kirishima", "Rize Kamishiro", "Hideyoshi Nagachika", "Shuu Tsukiyama", "Juuzou Suzuya", "Koutarou Amon"],
-    "Fairy Tail": ["Natsu Dragneel", "Lucy Heartfilia", "Erza Scarlet", "Gray Fullbuster", "Happy", "Wendy Marvell", "Jellal Fernandes"],
-    "Black Clover": ["Asta", "Yuno", "Noelle Silva", "Yami Sukehiro", "Julius Novachrono", "Luck Voltia", "Charmy Pappitson"],
-    "Seven Deadly Sins": ["Meliodas", "Elizabeth Liones", "Ban", "King", "Diane", "Gowther", "Escanor"],
-    "Mob Psycho 100": ["Shigeo Kageyama", "Arataka Reigen", "Dimple", "Teruki Hanazawa", "Ritsu Kageyama", "Sho Suzuki", "Toichiro Suzuki"],
-    "Chainsaw Man": ["Denji", "Makima", "Power", "Aki Hayakawa", "Reze", "Kishibe", "Kobeni Higashiyama"],
-    "Spy x Family": ["Loid Forger", "Anya Forger", "Yor Forger", "Bond Forger", "Yuri Briar", "Damian Desmond", "Becky Blackbell"],
-    "Solo Leveling": ["Sung Jinwoo", "Cha Hae-In", "Go Gunhee", "Choi Jong-In", "Baek Yoonho", "Igris", "Beru"],
-    "Slime": ["Rimuru Tempest", "Veldora Tempest", "Milim Nava", "Benimaru", "Shuna", "Shion", "Diablo"],
-    "Pokemon": ["Ash Ketchum", "Pikachu", "Charizard", "Mewtwo", "Lucario", "Greninja", "Gengar"],
-    "Re:Zero": ["Subaru Natsuki", "Emilia", "Rem", "Ram", "Beatrice", "Roswaal L Mathers", "Echidna"],
-    "Overlord": ["Ainz Ooal Gown", "Albedo", "Shalltear Bloodfallen", "Demiurge", "Cocytus", "Aura Bella Fiora", "Mare Bello Fiore"],
-    "Code Geass": ["Lelouch vi Britannia", "C.C.", "Suzaku Kururugi", "Kallen Stadtfeld", "Nunnally vi Britannia", "Shirley Fenette", "Euphemia li Britannia"],
-    "Steins;Gate": ["Rintaro Okabe", "Kurisu Makise", "Mayuri Shiina", "Itaru Hashida", "Suzuha Amane", "Luka Urushibara", "Faris NyanNyan"],
-    "Cowboy Bebop": ["Spike Spiegel", "Jet Black", "Faye Valentine", "Edward", "Ein", "Vicious", "Julia"],
-    "Neon Genesis Evangelion": ["Shinji Ikari", "Asuka Langley Soryu", "Rei Ayanami", "Misato Katsuragi", "Gendo Ikari", "Kaworu Nagisa", "Ritsuko Akagi"],
-    "Vinland Saga": ["Thorfinn", "Askeladd", "Canute", "Thors", "Thorkell", "Bjorn", "Floki"],
-    "High School DxD": ["Issei Hyoudou", "Rias Gremory", "Akeno Himejima", "Koneko Toujou", "Asia Argento", "Xenovia Quarta", "Yuuto Kiba"],
+    "Jujutsu Kaisen": [
+        "Satoru Gojo", "Sukuna", "Yuta Okkotsu", "Toji Fushiguro", "Kenjaku",
+        "Yuji Itadori", "Megumi Fushiguro", "Nobara Kugisaki", "Suguru Geto", "Aoi Todo", "Kento Nanami", "Kinji Hakari",
+        "Maki Zenin", "Toge Inumaki", "Panda", "Choso", "Mahito", "Jogo", "Hanami",
+        "Mei Mei", "Naobito Zenin", "Dagon", "Eso", "Kasumi Miwa", "Ultimate Mechamaru",
+        "Mai Zenin", "Momo Nishimiya", "Arata Nitta", "Kiyotaka Ijichi", "Haruta Shigemo"
+    ],
 }
 
 JIKAN_API = "https://api.jikan.moe/v4"

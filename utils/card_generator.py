@@ -269,13 +269,18 @@ def generate_card(
         lvl_text = f"Lv. {level}"
         draw.text((BORDER + 14, tag_y), lvl_text, fill=(255, 255, 255), font=tag_font)
         if ascension and ascension > 0:
-            asc_text = f"  +{ascension}"
-            # Measure level text width to place ascension after it
+            asc_text = f"  ✦ AWAKENED +{ascension}"
             lvl_bbox = draw.textbbox((0, 0), lvl_text, font=tag_font)
             lvl_w = lvl_bbox[2] - lvl_bbox[0]
             draw.text((BORDER + 14 + lvl_w + 4, tag_y), asc_text, fill=theme["accent"], font=tag_font)
     else:
         draw.text((BORDER + 14, tag_y), "Base Stats", fill=(200, 200, 200), font=tag_font)
+
+    # Power Score display on right of tag header
+    from utils.anime_data import calculate_power_score
+    p_score = calculate_power_score(character, level or 1, ascension or 0)
+    p_text = f"⚔️ Power: {p_score:,}"
+    draw.text((CARD_W - BORDER - 14, tag_y), p_text, fill=(255, 215, 0), font=tag_font, anchor="ra")
     
     # ── Stat bars ────────────────────────────────────────────────────────
     bar_y_start = tag_y + 28
@@ -306,21 +311,30 @@ def generate_card(
         # Value text after bar
         draw.text((bar_x + bar_w + 8, y - 2), str(val), fill=(255, 255, 255), font=stat_val_font)
     
-    # ── Special Move (right side of stats) ───────────────────────────────
-    move_x = CARD_W // 2 + 40
-    move_y = bar_y_start
-    move_font = _load_font("Inter-Bold.ttf", 13)
-    move_val_font = _load_font("Inter-Regular.ttf", 12)
+    # ── Role, Passive & Ultimate (right side of stats) ───────────────────
+    move_x = CARD_W // 2 + 35
+    move_y = bar_y_start - 2
+    move_font = _load_font("Inter-Bold.ttf", 12)
+    move_val_font = _load_font("Inter-Regular.ttf", 11)
     
-    draw.text((move_x, move_y), "🔮 Special", fill=theme["accent"], font=stat_label_font)
-    draw.text((move_x, move_y + 18), character.special.name, fill=(255, 255, 255), font=move_font)
-    draw.text((move_x, move_y + 36), f"{character.special.multiplier}× Damage", fill=(180, 180, 180), font=move_val_font)
+    role = getattr(character, "role", "DPS")
+    passive_name = getattr(character.passive, "name", "None") if hasattr(character, "passive") else "None"
+    
+    # Role
+    draw.text((move_x, move_y), f"Role: {role}", fill=theme["accent"], font=stat_label_font)
+    
+    # Passive
+    draw.text((move_x, move_y + 20), "✨ Passive", fill=(180, 180, 180), font=move_val_font)
+    draw.text((move_x, move_y + 34), passive_name, fill=(255, 255, 255), font=move_font)
+    
+    # Ultimate / Special
+    draw.text((move_x, move_y + 54), "🔮 Ultimate", fill=(180, 180, 180), font=move_val_font)
+    draw.text((move_x, move_y + 68), character.special.name, fill=(255, 255, 255), font=move_font)
     
     # ── Quote at the very bottom ─────────────────────────────────────────
     if character.quote:
         quote_font = _load_font("Inter-Regular.ttf", 11)
         quote_text = f'"{character.quote}"'
-        # Truncate if too long
         if len(quote_text) > 50:
             quote_text = quote_text[:47] + '..."'
         quote_y = CARD_H - BORDER - 22

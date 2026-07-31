@@ -2380,46 +2380,11 @@ class HelpSelect(Select):
                     f"`{p}buy [role]` — Purchase a color role"
                 ), inline=False)
         elif self.values[0] == "Anime RPG":
-            embed.description = "Collect, battle, and upgrade famous anime characters."
-            embed.add_field(
-                name="🎴 Collection & Gacha",
-                value=(
-                    f"`{p}pull` — Summon a random character (500 Coins)\n"
-                    f"`{p}pull10` — 10x multi-pull with discount\n"
-                    f"`{p}collection` — View your collection\n"
-                    f"`{p}dex` — Anime completion tracker\n"
-                    f"`{p}info <char>` — View any character's base stats\n"
-                    f"`{p}show <char>` — View your owned character's card\n"
-                    f"`{p}favorite <char>` — Set your favorite character"
-                ), inline=False)
-            embed.add_field(
-                name="⚔️ Battles & Dungeons",
-                value=(
-                    f"`{p}battle @user` — Challenge someone to a 3v3 fight\n"
-                    f"`{p}team` — Set your active battle team\n"
-                    f"`{p}dungeon [1-20]` — Explore PvE dungeons for loot\n"
-                    f"`{p}dungeoninfo <#>` — View dungeon details\n"
-                    f"`{p}dungeonstats` — Your dungeon progress"
-                ), inline=False)
-            embed.add_field(
-                name="🔄 Trading & Upgrades",
-                value=(
-                    f"`{p}trade @user` — Interactive trade window\n"
-                    f"`{p}quicktrade @user <yours> for <theirs>` — Quick 1:1 swap\n"
-                    f"`{p}enchant <char>` — Level up your characters\n"
-                    f"`{p}ascend <char>` — Break character level caps\n"
-                    f"`{p}stats <char>` — View character's full stats\n"
-                    f"`{p}fuse <char>` — Fuse duplicates for power"
-                ), inline=False)
-            embed.add_field(
-                name="🎒 Inventory & Progression",
-                value=(
-                    f"`{p}inventory` / `{p}inv` — View your items\n"
-                    f"`{p}itemshop` — Browse consumable items\n"
-                    f"`{p}itembuy <item> [qty]` — Purchase items\n"
-                    f"`{p}use <item>` — Use a consumable\n"
-                    f"`{p}achievements` / `{p}badges` — View unlocked badges"
-                ), inline=False)
+            from cogs.anime_help import AnimeHelpView
+            anime_view = AnimeHelpView(self.ctx, p)
+            anime_embed = anime_view.build_embed("start")
+            await interaction.response.edit_message(embed=anime_embed, view=anime_view)
+            return
         elif self.values[0] == "Multiplayer & Party":
             embed.description = "Play games with friends in the server."
             embed.add_field(
@@ -2462,9 +2427,18 @@ class HelpView(View):
 
 
 @bot.command(name="help")
-async def custom_help(ctx: commands.Context):
+async def custom_help(ctx: commands.Context, *, category: str = None):
     """Show an interactive help menu."""
     p = config["prefix"]
+
+    if category and category.strip().lower() in ("anime", "jjk", "rpg", "guide"):
+        from cogs.anime_help import AnimeHelpView
+        view = AnimeHelpView(ctx, p)
+        embed = view.build_embed("start")
+        msg = await ctx.send(embed=embed, view=view)
+        view.message = msg
+        return
+
     embed = discord.Embed(
         title="🎰 ZEN Bot — Help Menu",
         description="Welcome to ZEN Bot! Use the dropdown below to explore commands.\n\nWin big or lose it all. Good luck!",
@@ -2723,7 +2697,7 @@ async def main():
             print(f"Warning starting web server: {e}")
 
     async with bot:
-        for ext in ["cogs.anime_collection", "cogs.anime_battle", "cogs.anime_enchant", "cogs.anime_achievements", "cogs.anime_inventory", "cogs.anime_trading", "cogs.anime_dungeon", "cogs.truth_or_dare", "cogs.this_or_that", "cogs.emoji_movie", "cogs.instagram", "cogs.zping", "cogs.would_you_rather", "cogs.twenty_questions"]:
+        for ext in ["cogs.anime_collection", "cogs.anime_battle", "cogs.anime_enchant", "cogs.anime_achievements", "cogs.anime_inventory", "cogs.anime_trading", "cogs.anime_dungeon", "cogs.jjk_wiki", "cogs.anime_story", "cogs.anime_help", "cogs.truth_or_dare", "cogs.this_or_that", "cogs.emoji_movie", "cogs.instagram", "cogs.zping", "cogs.would_you_rather", "cogs.twenty_questions"]:
             try:
                 await bot.load_extension(ext)
                 print(f"[+] Loaded extension: {ext}")

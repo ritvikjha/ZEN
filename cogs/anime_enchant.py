@@ -9,7 +9,7 @@ import asyncio
 
 from utils.db import get_doc, update_doc, save_doc
 from utils.data import get_balance, add_balance
-from utils.anime_data import get_character, ASCENSION_COST, DUPLICATE_FRAGMENTS
+from utils.anime_data import get_character, ASCENSION_COST, DUPLICATE_FRAGMENTS, calculate_stat, calculate_full_stats as _calc_full
 from utils.card_generator import generate_card
 
 # UI Constants
@@ -35,13 +35,17 @@ def calculate_enchant_cost(level: int) -> int:
     """Coin cost for standard enchant attempt based on current level."""
     return int(50 * (level ** 1.2))
 
-def calculate_stats(base_stat: int, level: int, ascension_tier: int) -> int:
-    """Calculate effective stat considering level and ascension tier."""
-    # Each level gives 2% base stat growth
-    level_mult = 1.0 + (level - 1) * 0.02
-    # Each ascension tier gives a flat 1.5x multiplier to EVERYTHING
-    asc_mult = 1.5 ** ascension_tier
+def calculate_stats(base_stat: int, level: int, ascension_tier: int, growth_per_level: int = 0) -> int:
+    """Calculate effective stat considering level, growth, and ascension tier.
     
+    If growth_per_level is provided (V2), uses additive growth.
+    Otherwise falls back to multiplicative 2% growth (V1 compat).
+    """
+    if growth_per_level > 0:
+        return calculate_stat(base_stat, level, growth_per_level, ascension_tier)
+    # V1 fallback: 2% per level
+    level_mult = 1.0 + (level - 1) * 0.02
+    asc_mult = 1.5 ** ascension_tier
     return int(base_stat * level_mult * asc_mult)
 
 
@@ -339,6 +343,9 @@ class AnimeEnchant(commands.Cog, name="Anime Enchant & Ascend"):
             
         t_obj = get_character(target_data["name"])
         f_obj = get_character(fodder_data["name"])
+        if not t_obj or not f_obj:
+            await ctx.send(embed=discord.Embed(description="❌ One of the specified characters is invalid or no longer exists.", color=Colors.ERROR))
+            return
         
         # Calculate XP to grant based on fodder rarity and level
         f_level = fodder_data.get("level", 1)

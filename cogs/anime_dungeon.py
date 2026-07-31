@@ -14,8 +14,7 @@ import time
 
 from utils.db import get_doc, save_doc, update_doc
 from utils.data import get_balance, add_balance
-from utils.anime_data import get_character, AnimeCharacter, get_element_advantage, ELEMENT_EMOJIS
-from cogs.anime_enchant import calculate_stats
+from utils.anime_data import get_character, AnimeCharacter, get_element_advantage, ELEMENT_EMOJIS, calculate_full_stats, add_mastery_xp
 
 # UI Constants
 class Colors:
@@ -239,14 +238,23 @@ class DungeonFighter:
     def __init__(self, char_data: dict):
         self.char_data = char_data
         self.base_char = get_character(char_data["name"])
+        if not self.base_char:
+            from utils.anime_data import ALL_CHARACTERS
+            self.base_char = ALL_CHARACTERS[0]
         self.level = char_data.get("level", 1)
         self.asc = char_data.get("ascension_tier", 0)
         
-        self.max_hp = calculate_stats(self.base_char.hp, self.level, self.asc)
+        full = calculate_full_stats(self.base_char, self.level, self.asc)
+        self.max_hp = full["hp"]
         self.hp = self.max_hp
-        self.atk = calculate_stats(self.base_char.atk, self.level, self.asc)
-        self.defense = calculate_stats(self.base_char.defense, self.level, self.asc)
-        self.spd = calculate_stats(self.base_char.spd, self.level, self.asc)
+        self.atk = full["atk"]
+        self.defense = full["defense"]
+        self.spd = full["spd"]
+        self.crit_rate = full["crit_rate"]
+        self.crit_dmg = full["crit_dmg"]
+        self.max_ce = full["max_ce"]
+        self.ce = self.max_ce
+        self.skills = self.base_char.skills
     
     @property
     def is_alive(self):
@@ -257,6 +265,18 @@ class DungeonFighter:
         amount = int(self.max_hp * pct)
         self.hp = min(self.max_hp, self.hp + amount)
         return amount
+    
+    def regen_ce(self):
+        """Regenerate CE between floors."""
+        self.ce = min(self.max_ce, self.ce + 15)
+    
+    def pick_best_skill(self) -> int:
+        """AI: pick the best available skill for auto-battle. Returns skill index."""
+        for priority in ["ultimate", "skill2", "skill1", "basic"]:
+            for i, sk in enumerate(self.skills):
+                if sk.skill_type == priority and sk.ce_cost <= self.ce:
+                    return i
+        return 0
     
     def get_hp_bar(self) -> str:
         pct = self.hp / self.max_hp
@@ -293,15 +313,20 @@ def simulate_floor_battle(fighters: list[DungeonFighter], enemy: DungeonEnemy) -
             if not fighter.is_alive or not enemy.is_alive:
                 continue
             
-            # Calculate damage
+            # Pick best skill based on CE
+            skill_idx = fighter.pick_best_skill()
+            skill = fighter.skills[skill_idx] if skill_idx < len(fighter.skills) else None
+            skill_mult = skill.damage_multiplier if skill else 1.0
+            skill_name = skill.name if skill else "Attack"
+            if skill and skill.ce_cost > 0:
+                fighter.ce = max(0, fighter.ce - skill.ce_cost)
+            base_dmg = int(fighter.atk * skill_mult)
             elem_mult = get_element_advantage(fighter.base_char.element, enemy.element)
-            raw_dmg = max(10, int((fighter.atk ** 2) / (fighter.atk + enemy.defense)))
+            raw_dmg = max(10, int((base_dmg ** 2) / (base_dmg + enemy.defense)))
             raw_dmg = int(raw_dmg * elem_mult * random.uniform(0.9, 1.1))
-            
-            # 15% chance to crit
-            crit = random.random() < 0.15
+            crit = random.random() < fighter.crit_rate
             if crit:
-                raw_dmg = int(raw_dmg * 1.5)
+                raw_dmg = int(raw_dmg * fighter.crit_dmg)
             
             enemy.hp = max(0, enemy.hp - raw_dmg)
             
@@ -512,6 +537,11 @@ class DungeonView(View):
             rewards = calculate_floor_rewards(self.dungeon["id"], self.floor, is_boss)
             self.last_rewards = rewards
             self._add_rewards(rewards)
+            
+            # Award Mastery XP (+15 per floor clear)
+            for f in self.fighters:
+                if f.is_alive:
+                    add_mastery_xp(self.ctx.author.id, f.base_char.name, 15)
             
             # Small heal between floors (20% HP recovery, more on boss kills)
             heal_pct = 0.35 if is_boss else 0.20
