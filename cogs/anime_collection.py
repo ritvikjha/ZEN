@@ -1189,7 +1189,7 @@ class AnimeCollection(commands.Cog, name="Anime Collection (Gacha)"):
         embed.set_footer(text=BOT_FOOTER)
         await ctx.send(embed=embed)
 
-    @commands.command(name="showcase", aliases=["profile"])
+    @commands.command(name="showcase", aliases=["sc"])
     async def showcase(self, ctx: commands.Context, member: discord.Member = None):
         """🏆 View player profile showcase with favorite character, power score, and completion."""
         target = member or ctx.author

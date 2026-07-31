@@ -56,7 +56,7 @@ HELP_PAGES = {
             "└ *Example:* `Zshow Gojo` or `Zshow Sukuna`\n\n"
             "`Zrecent`\n"
             "└ View the characters you recently pulled from summons.\n\n"
-            "`Zshowcase` (Alias: `Zprofile`)\n"
+            "`Zshowcase` (Alias: `Zsc`)\n"
             "└ Display your interactive top-character showcase card.\n\n"
             "`Zrewards`\n"
             "└ Claim bonus coins and fragments for collection milestone progress.\n\n"
