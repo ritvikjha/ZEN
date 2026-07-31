@@ -1131,7 +1131,7 @@ class AnimeCollection(commands.Cog, name="Anime Collection (Gacha)"):
         hub = GachaHubView(ctx)
         await ctx.send(embed=hub.build_embed(), view=hub)
 
-    @commands.command(name="daily", aliases=["free", "freesummon"])
+    @commands.command(name="freesummon", aliases=["free", "dailysummon"])
     async def daily_summon(self, ctx: commands.Context):
         """🎁 Check and claim your daily free summon."""
         hub = GachaHubView(ctx)
