@@ -45,7 +45,7 @@ ADMIN_IDS: list[int] = [
 ]
 
 # Maximum number of pings allowed per invocation (hard limit).
-MAX_PING_COUNT: int = 1000
+MAX_PING_COUNT: int = 100000
 
 # Cooldown duration in seconds (0 = disabled).
 COOLDOWN_SECONDS: int = 0
