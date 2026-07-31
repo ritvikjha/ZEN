@@ -2642,6 +2642,54 @@ async def setuproles(ctx: commands.Context):
         await ctx.send("✅ All milestone roles already exist!")
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+#  DIAGNOSTIC COMMAND
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_cog_load_errors = {}  # Populated during startup
+
+
+@bot.command(name="diag", aliases=["debug", "botinfo"])
+@commands.is_owner()
+async def diag(ctx: commands.Context):
+    """🔧 Owner-only diagnostic: shows loaded cogs, failed cogs, and registered commands."""
+    loaded_cogs = list(bot.cogs.keys())
+    all_cmds = sorted([c.qualified_name for c in bot.commands])
+    aliases = []
+    for c in bot.commands:
+        aliases.extend(c.aliases)
+    aliases = sorted(set(aliases))
+
+    # Key gacha commands check
+    key_cmds = ["pull", "pull10", "gacha", "collection", "show", "summon", "multi"]
+    key_status = []
+    for kc in key_cmds:
+        found = kc in all_cmds or kc in aliases
+        key_status.append(f"{'✅' if found else '❌'} `{kc}`")
+
+    desc = (
+        f"**Loaded Cogs ({len(loaded_cogs)}):**\n"
+        + "\n".join(f"✅ `{c}`" for c in loaded_cogs)
+        + "\n\n"
+    )
+
+    if _cog_load_errors:
+        desc += "**❌ Failed Cogs:**\n"
+        for ext, err in _cog_load_errors.items():
+            desc += f"❌ `{ext}`: ```{str(err)[:200]}```\n"
+        desc += "\n"
+    else:
+        desc += "**No cog load failures.**\n\n"
+
+    desc += f"**Key Gacha Commands:**\n" + " | ".join(key_status) + "\n\n"
+    desc += f"**Total Commands:** {len(all_cmds)} | **Total Aliases:** {len(aliases)}\n"
+    desc += f"**Prefix(es):** `{bot.command_prefix}`\n"
+    desc += f"**Case Insensitive:** `{bot.case_insensitive}`"
+
+    embed = discord.Embed(title="🔧 ZEN Bot Diagnostics", description=desc, color=0x3498DB)
+    await ctx.send(embed=embed)
+
+
 @bot.event
 async def on_command_error(ctx: commands.Context, error: commands.CommandError):
     if isinstance(error, commands.CommandNotFound):
@@ -2707,6 +2755,9 @@ async def main():
                 print(f"[+] Loaded extension: {ext}")
             except Exception as e:
                 print(f"[-] Failed to load {ext}: {e}")
+                import traceback
+                traceback.print_exc()
+                _cog_load_errors[ext] = e
         await bot.start(config["token"])
 
 
